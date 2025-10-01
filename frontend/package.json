@@ -1,0 +1,46 @@
+{
+  "name": "novel-generate-frontend",
+  "version": "1.0.0",
+  "description": "小说生成智能体框架前端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "@reduxjs/toolkit": "^1.9.3",
+    "react-redux": "^8.0.5",
+    "antd": "^5.2.8",
+    "@ant-design/icons": "^5.0.1",
+    "d3": "^7.8.5",
+    "axios": "^1.3.4",
+    "dayjs": "^1.11.7",
+    "lodash": "^4.17.21",
+    "react-query": "^3.39.2",
+    "react-hook-form": "^7.43.1",
+    "react-markdown": "^8.0.5",
+    "react-syntax-highlighter": "^15.5.0",
+    "recharts": "^2.5.0",
+    "framer-motion": "^10.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@types/d3": "^7.4.0",
+    "@types/lodash": "^4.14.191",
+    "@types/react-syntax-highlighter": "^15.5.6",
+    "@typescript-eslint/eslint-plugin": "^5.54.1",
+    "@typescript-eslint/parser": "^5.54.1",
+    "@vitejs/plugin-react": "^3.1.0",
+    "eslint": "^8.35.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.3.4",
+    "typescript": "^4.9.3",
+    "vite": "^4.1.0"
+  }
+}
