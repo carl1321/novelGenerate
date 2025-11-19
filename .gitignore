@@ -33,3 +33,6 @@ logs/
 temp/
 tmp/
 node_modules/
+
+# Cursor IDE
+.cursor/
