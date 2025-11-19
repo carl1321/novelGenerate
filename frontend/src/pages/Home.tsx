@@ -22,7 +22,7 @@ const Home: React.FC = () => {
   // 获取统计数据
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/progress');
+      const response = await fetch('http://localhost:8001/api/progress');
       if (response.ok) {
         const data = await response.json();
         // 根据实际数据更新统计
@@ -80,7 +80,7 @@ const Home: React.FC = () => {
           case 5: endpoint = '/api/generate/detailed-plot'; break;
         }
 
-        const response = await fetch(`http://localhost:8000${endpoint}`, {
+        const response = await fetch(`http://localhost:8001${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

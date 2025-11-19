@@ -15,8 +15,9 @@ class CharacterDatabase:
     
     def __init__(self, connection_string: str = None):
         if connection_string is None:
-            # 默认连接字符串
-            connection_string = "postgresql://postgres:password@localhost:5432/novel_generate"
+            # 使用配置文件中的数据库连接字符串
+            from app.core.config import settings
+            connection_string = settings.DATABASE_URL
         self.connection_string = connection_string
     
     def get_connection(self):
@@ -33,13 +34,13 @@ class CharacterDatabase:
                         INSERT INTO characters (
                             character_id, worldview_id, name, age, gender, role_type,
                             cultivation_level, element_type, background, current_location,
-                            organization_id, personality_traits, goals, relationships,
-                            techniques, artifacts, resources, stats, metadata, created_by
+                            organization_id, personality_traits, main_goals, short_term_goals,
+                            techniques, weaknesses, appearance, turning_point, relationship_text, values, metadata, created_by
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         ) RETURNING character_id
                     """, (
-                        character_data.get("id"),
+                        character_data.get("character_id") or character_data.get("id"),
                         character_data.get("worldview_id"),
                         character_data.get("name"),
                         character_data.get("age"),
@@ -50,13 +51,15 @@ class CharacterDatabase:
                         character_data.get("background"),
                         character_data.get("current_location"),
                         character_data.get("organization_id"),
-                        json.dumps(character_data.get("personality_traits", [])),
-                        json.dumps(character_data.get("goals", [])),
-                        json.dumps(character_data.get("relationships", {})),
+                        character_data.get("personality_traits", ""),
+                        character_data.get("main_goals", ""),
+                        character_data.get("short_term_goals", ""),
                         json.dumps(character_data.get("techniques", [])),
-                        json.dumps(character_data.get("artifacts", [])),
-                        json.dumps(character_data.get("resources", {})),
-                        json.dumps(character_data.get("stats", {})),
+                        character_data.get("weaknesses", ""),
+                        character_data.get("appearance", ""),
+                        character_data.get("turning_point", ""),
+                        character_data.get("relationship_text", ""),
+                        character_data.get("values", ""),
                         json.dumps(character_data.get("metadata", {})),
                         created_by
                     ))
@@ -79,8 +82,8 @@ class CharacterDatabase:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                     cursor.execute("""
-                        SELECT * FROM character_complete 
-                        WHERE character_id = %s
+                        SELECT * FROM characters 
+                        WHERE character_id = %s AND status = 'active'
                     """, (character_id,))
                     
                     result = cursor.fetchone()
@@ -98,7 +101,7 @@ class CharacterDatabase:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                     cursor.execute("""
-                        SELECT * FROM character_complete 
+                        SELECT * FROM characters 
                         WHERE worldview_id = %s AND status = 'active'
                         ORDER BY created_at DESC
                         LIMIT %s OFFSET %s
@@ -137,7 +140,7 @@ class CharacterDatabase:
                     params.extend([limit])
                     
                     query = f"""
-                        SELECT * FROM character_complete 
+                        SELECT * FROM characters 
                         WHERE {where_clause}
                         ORDER BY created_at DESC
                         LIMIT %s
@@ -156,17 +159,33 @@ class CharacterDatabase:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 更新主表
+                    # 更新所有字段（包括主字段和JSONB字段）
                     main_fields = ["name", "age", "gender", "role_type", "cultivation_level", 
                                  "element_type", "background", "current_location", "organization_id"]
+                    text_fields = ["personality_traits", "main_goals", "short_term_goals", 
+                                 "weaknesses", "appearance", "turning_point", "relationship_text", "values"]
+                    jsonb_fields = ["techniques", "metadata"]
                     
                     update_fields = []
                     params = []
                     
+                    # 处理主字段
                     for field in main_fields:
                         if field in updates:
                             update_fields.append(f"{field} = %s")
                             params.append(updates[field])
+                    
+                    # 处理文本字段
+                    for field in text_fields:
+                        if field in updates:
+                            update_fields.append(f"{field} = %s")
+                            params.append(updates[field])
+                    
+                    # 处理JSONB字段
+                    for field in jsonb_fields:
+                        if field in updates:
+                            update_fields.append(f"{field} = %s")
+                            params.append(json.dumps(updates[field]))
                     
                     if update_fields:
                         params.append(character_id)
@@ -175,20 +194,6 @@ class CharacterDatabase:
                             SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP
                             WHERE character_id = %s
                         """, params)
-                    
-                    # 更新JSONB字段
-                    jsonb_fields = ["personality_traits", "goals", "relationships", 
-                                  "techniques", "artifacts", "resources", "stats", "metadata"]
-                    
-                    for field in jsonb_fields:
-                        if field in updates:
-                            table_name = f"character_{field}"
-                            cursor.execute(f"""
-                                INSERT INTO {table_name} (character_id, {field})
-                                VALUES (%s, %s)
-                                ON CONFLICT (character_id) 
-                                DO UPDATE SET {field} = %s, updated_at = CURRENT_TIMESTAMP
-                            """, (character_id, json.dumps(updates[field]), json.dumps(updates[field])))
                     
                     conn.commit()
                     return True
@@ -200,6 +205,7 @@ class CharacterDatabase:
     def delete_character(self, character_id: str) -> bool:
         """删除角色（软删除）"""
         try:
+            logger.info(f"尝试删除角色ID: {character_id}")
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
@@ -209,10 +215,12 @@ class CharacterDatabase:
                     """, (character_id,))
                     
                     conn.commit()
+                    logger.info(f"删除操作影响行数: {cursor.rowcount}")
                     return cursor.rowcount > 0
                     
         except Exception as e:
             logger.error(f"删除角色失败: {e}")
+            logger.error(f"删除角色数据库错误: {e}")
             return False
     
     def get_character_stats(self, worldview_id: str = None) -> Dict[str, Any]:

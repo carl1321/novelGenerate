@@ -5,17 +5,17 @@ import json
 import logging
 from typing import Dict, List, Any, Optional
 
-from app.utils import llm_client
-from prompts.prompt_manager import PromptManager
+from app.utils.llm_client import get_llm_client
+from app.utils.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
 
 
-class PartWorldUpdater:
+class PartialWorldUpdateService:
     """部分世界观更新器"""
     
     def __init__(self):
-        self.llm_client = llm_client
+        self.llm_client = get_llm_client()
         self.prompt_manager = PromptManager()
     
     async def update_partial_worldview(
@@ -58,6 +58,8 @@ class PartWorldUpdater:
         try:
             response = await self.llm_client.generate_chat(messages)
             logger.info("LLM生成内容成功")
+            logger.info(f"LLM原始响应长度: {len(response)} 字符")
+            logger.info(f"LLM原始响应前500字符: {response[:500]}")
         except Exception as e:
             logger.error(f"LLM生成内容失败: {e}")
             raise
@@ -66,6 +68,25 @@ class PartWorldUpdater:
         try:
             new_data = json.loads(response)
             logger.info(f"LLM响应解析成功，返回维度: {list(new_data.keys())}")
+            
+            # 详细记录每个维度的内容
+            for dimension in update_dimensions:
+                if dimension in new_data:
+                    dimension_data = new_data[dimension]
+                    logger.info(f"维度 {dimension} 数据:")
+                    if isinstance(dimension_data, dict):
+                        for key, value in dimension_data.items():
+                            if isinstance(value, list):
+                                logger.info(f"  {key}: {len(value)} 项")
+                                if len(value) > 0:
+                                    logger.info(f"    示例: {value[0] if isinstance(value[0], dict) else str(value[0])[:100]}")
+                            else:
+                                logger.info(f"  {key}: {str(value)[:100]}")
+                    else:
+                        logger.info(f"  数据类型: {type(dimension_data)}, 内容: {str(dimension_data)[:200]}")
+                else:
+                    logger.warning(f"维度 {dimension} 未在LLM响应中找到")
+                    
         except json.JSONDecodeError as e:
             logger.error(f"LLM响应解析失败: {e}")
             logger.error(f"原始响应: {response[:500]}...")
@@ -76,7 +97,13 @@ class PartWorldUpdater:
         logger.info(f"LLM指定的更新模式: {update_mode}")
         
         # 5. 合并数据
+        logger.info(f"开始合并数据，更新维度: {update_dimensions}")
+        logger.info(f"现有世界观数据: {existing_worldview}")
+        logger.info(f"LLM返回的新数据: {new_data}")
+        
         merged_data = self._merge_worldview_data(existing_worldview, new_data, update_dimensions, update_mode)
+        
+        logger.info(f"合并后的数据: {merged_data}")
         
         logger.info(f"部分更新完成，更新了 {len(update_dimensions)} 个维度")
         return merged_data
@@ -142,7 +169,7 @@ class PartWorldUpdater:
         # 定义每个维度的数组字段
         array_fields = {
             'power_system': ['cultivation_realms', 'energy_types', 'technique_categories'],
-            'geography': ['main_regions', 'special_locations'],
+            'geography': ['regions', 'main_regions', 'special_locations'],
             'culture': ['organizations'],
             'history': ['historical_events', 'cultural_features', 'current_conflicts']
         }

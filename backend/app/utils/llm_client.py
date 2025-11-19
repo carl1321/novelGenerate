@@ -73,6 +73,10 @@ class AlibabaQwenClient(BaseLLMClient):
         
         dashscope.api_key = api_key
         self.dashscope = dashscope
+        
+        # 设置超时时间为10分钟（600秒）
+        import requests
+        dashscope.api_timeout = settings.ALIBABA_QWEN_TIMEOUT  # 使用配置文件中的超时设置
     
     async def generate_text(self, prompt: str, **kwargs) -> str:
         """生成文本"""
@@ -158,6 +162,8 @@ class AlibabaQwenClient(BaseLLMClient):
 
 
 
+
+
 class LLMClientFactory:
     """LLM客户端工厂类"""
     
@@ -170,18 +176,14 @@ class LLMClientFactory:
             provider = settings.LLM_PROVIDER
         
         if provider not in cls._clients:
-            try:
-                if provider == "azure":
-                    cls._clients[provider] = AzureOpenAIClient()
-                elif provider == "alibaba":
-                    cls._clients[provider] = AlibabaQwenClient()
-                else:
-                    raise ValueError(f"不支持的LLM提供商: {provider}")
-            except Exception as e:
-                print(f"初始化LLM客户端失败 ({provider}): {e}")
-                raise
+            if provider == "azure":
+                cls._clients[provider] = AzureOpenAIClient()
+            elif provider == "alibaba":
+                cls._clients[provider] = AlibabaQwenClient()
+            else:
+                raise ValueError(f"不支持的LLM提供商: {provider}")
         else:
-            print(f"使用缓存的LLM客户端: {provider}")
+            pass  # 使用缓存的客户端
         
         return cls._clients[provider]
     

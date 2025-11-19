@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
@@ -17,8 +18,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制应用代码
 COPY . .
 
+# 创建输出目录
+RUN mkdir -p /app/novel
+
 # 暴露端口
-EXPOSE 8000
+EXPOSE 8001
 
 # 启动命令
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

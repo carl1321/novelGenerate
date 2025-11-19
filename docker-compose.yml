@@ -1,45 +1,10 @@
 version: '3.8'
 
 services:
-  # 后端服务
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://novel_user:novel_password@postgres:5432/novel_generate
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=novel_neo4j_password
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - postgres
-      - neo4j
-      - redis
-    volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # 前端服务
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev
-
   # PostgreSQL数据库
   postgres:
     image: postgres:15-alpine
+    container_name: novel_generate_postgres
     environment:
       - POSTGRES_DB=novel_generate
       - POSTGRES_USER=novel_user
@@ -48,68 +13,76 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/init_all_tables.sql:/docker-entrypoint-initdb.d/01-init-all-tables.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U novel_user -d novel_generate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - novel_network
 
-  # Neo4j图数据库
-  neo4j:
-    image: neo4j:5.15-community
-    environment:
-      - NEO4J_AUTH=neo4j/novel_neo4j_password
-      - NEO4J_PLUGINS=["apoc"]
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: novel_generate_backend
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://novel_user:novel_password@postgres:5432/novel_generate
+      - REDIS_URL=redis://redis:6379/0
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-}
+      - ALIBABA_QWEN_API_KEY=${ALIBABA_QWEN_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-alibaba}
+      - PORT=8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
+      - ./backend:/app
+      - ./novel:/app/novel
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    networks:
+      - novel_network
 
-  # Redis缓存
+  # Redis缓存（可选，如果后端不需要可以移除）
   redis:
     image: redis:7-alpine
+    container_name: novel_generate_redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - novel_network
 
-  # Celery任务队列
-  celery:
+  # 前端服务
+  frontend:
     build:
-      context: ./backend
+      context: ./frontend
       dockerfile: Dockerfile
-    environment:
-      - DATABASE_URL=postgresql://novel_user:novel_password@postgres:5432/novel_generate
-      - NEO4J_URI=bolt://neo4j:7687
-      - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=novel_neo4j_password
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-    depends_on:
-      - postgres
-      - neo4j
-      - redis
-    volumes:
-      - ./backend:/app
-    command: celery -A app.core.celery worker --loglevel=info
-
-  # Flower监控
-  flower:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    container_name: novel_generate_frontend
     ports:
-      - "5555:5555"
+      - "3001:3001"
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-    depends_on:
-      - redis
+      - VITE_API_URL=http://localhost:8001
     volumes:
-      - ./backend:/app
-    command: celery -A app.core.celery flower --port=5555
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 3001
+    networks:
+      - novel_network
 
 volumes:
   postgres_data:
-  neo4j_data:
-  neo4j_logs:
   redis_data:
+
+networks:
+  novel_network:
+    driver: bridge

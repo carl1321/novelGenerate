@@ -43,32 +43,41 @@ class WorldViewDatabase:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    # 使用存储过程插入完整数据
+                    # 直接插入各个表，只包含prompt中定义的字段
+                    # 1. 插入主表
                     cursor.execute("""
-                        SELECT insert_worldview_complete(
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s
-                        )
+                        INSERT INTO worldviews (worldview_id, name, description, core_concept, created_by)
+                        VALUES (%s, %s, %s, %s, %s)
                     """, (
                         worldview_id,
                         worldview_data.get('name', ''),
                         worldview_data.get('description', ''),
                         worldview_data.get('core_concept', ''),
-                        created_by,
-                        json.dumps(worldview_data.get('power_system', {}).get('cultivation_realms', [])),
-                        json.dumps(worldview_data.get('power_system', {}).get('energy_types', [])),
-                        json.dumps(worldview_data.get('power_system', {}).get('technique_categories', [])),
-                        json.dumps(worldview_data.get('geography', {}).get('main_regions', [])),
-                        json.dumps(worldview_data.get('geography', {}).get('special_locations', [])),
-                        json.dumps(worldview_data.get('culture', {}).get('organizations', [])),
-                        json.dumps(worldview_data.get('culture', {}).get('social_hierarchy', {})),
-                        json.dumps(worldview_data.get('history', {}).get('historical_events', [])),
-                        json.dumps(worldview_data.get('history', {}).get('cultural_features', [])),
-                        json.dumps(worldview_data.get('history', {}).get('current_conflicts', []))
+                        created_by
                     ))
                     
-                    result = cursor.fetchone()
+                    # 2. 插入力量体系
+                    power_system_data = worldview_data.get('power_system', {})
+                    cursor.execute("""
+                        INSERT INTO power_systems (worldview_id, cultivation_realms)
+                        VALUES (%s, %s)
+                    """, (
+                        worldview_id,
+                        json.dumps(power_system_data.get('cultivation_realms', []))
+                    ))
+                    
+                    # 3. 插入地理设定
+                    geography_data = worldview_data.get('geography', {})
+                    cursor.execute("""
+                        INSERT INTO geographies (worldview_id, regions, main_regions, special_locations)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        worldview_id,
+                        json.dumps(geography_data.get('regions', [])),
+                        json.dumps(geography_data.get('main_regions', [])),
+                        json.dumps(geography_data.get('special_locations', []))
+                    ))
+                    
                     conn.commit()
                     
                     logger.info(f"成功插入世界观数据: {worldview_id}")
@@ -91,49 +100,81 @@ class WorldViewDatabase:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
+                    # 使用显式 JOIN 获取完整数据
                     cursor.execute("""
-                        SELECT * FROM worldview_complete 
-                        WHERE worldview_id = %s
+                        SELECT 
+                            w.*,
+                            ps.cultivation_realms,
+                            g.regions,
+                            g.main_regions,
+                            g.special_locations,
+                            s.organizations,
+                            s.social_hierarchy,
+                            hc.historical_events,
+                            hc.cultural_features,
+                            hc.current_conflicts
+                        FROM worldviews w
+                        LEFT JOIN power_systems ps ON w.worldview_id = ps.worldview_id
+                        LEFT JOIN geographies g ON w.worldview_id = g.worldview_id
+                        LEFT JOIN societies s ON w.worldview_id = s.worldview_id
+                        LEFT JOIN history_cultures hc ON w.worldview_id = hc.worldview_id
+                        WHERE w.worldview_id = %s AND w.status = 'active'
                     """, (worldview_id,))
                     
                     result = cursor.fetchone()
                     if result:
                         worldview_data = dict(result)
-                        # 重新组织5维度结构
-                        worldview_data['power_system'] = {
-                            'cultivation_realms': worldview_data.get('cultivation_realms', []),
-                            'energy_types': worldview_data.get('energy_types', []),
-                            'technique_categories': worldview_data.get('technique_categories', [])
-                        }
-                        worldview_data['geography'] = {
-                            'main_regions': worldview_data.get('main_regions', []),
-                            'special_locations': worldview_data.get('special_locations', [])
-                        }
-                        worldview_data['culture'] = {
-                            'organizations': worldview_data.get('organizations', []),
-                            'social_system': worldview_data.get('social_system', {})
-                        }
-                        worldview_data['history'] = {
-                            'historical_events': worldview_data.get('historical_events', []),
-                            'cultural_features': worldview_data.get('cultural_features', []),
-                            'current_conflicts': worldview_data.get('current_conflicts', [])
+                        
+                        # 构建前端期望的数据结构，只包含prompt中定义的字段
+                        power_system = {
+                            'cultivation_realms': worldview_data.get('cultivation_realms') or []
                         }
                         
-                        # 删除扁平化的字段
-                        fields_to_remove = [
-                            'cultivation_realms', 'energy_types', 'technique_categories',
-                            'main_regions', 'special_locations', 'organizations', 'social_system',
-                            'historical_events', 'cultural_features', 'current_conflicts'
-                        ]
-                        for field in fields_to_remove:
-                            worldview_data.pop(field, None)
+                        geography = {
+                            'regions': worldview_data.get('regions') or [],
+                            'main_regions': worldview_data.get('main_regions') or [],
+                            'special_locations': worldview_data.get('special_locations') or []
+                        }
                         
-                        return worldview_data
+                        # 返回重构的数据结构，只包含prompt中定义的字段
+                        return {
+                            'id': worldview_data['worldview_id'],  # 前端期望的字段名
+                            'worldview_id': worldview_data['worldview_id'],
+                            'name': worldview_data['name'],
+                            'description': worldview_data['description'] or '',
+                            'core_concept': worldview_data['core_concept'] or '',
+                            'created_at': worldview_data['created_at'],
+                            'updated_at': worldview_data['updated_at'],
+                            'created_by': worldview_data['created_by'],
+                            'version': worldview_data['version'],
+                            'status': worldview_data['status'],
+                            'power_system': power_system,
+                            'geography': geography
+                        }
                     return None
                     
         except Exception as e:
             logger.error(f"获取世界观数据失败: {e}")
             raise
+    
+    def get_geography(self, worldview_id: str) -> Optional[Dict[str, Any]]:
+        """获取地理设定信息"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT main_regions, special_locations, regions
+                        FROM geographies 
+                        WHERE worldview_id = %s
+                    """, (worldview_id,))
+                    
+                    row = cursor.fetchone()
+                    if row:
+                        return dict(row)
+                    return None
+        except Exception as e:
+            logger.error(f"获取地理设定失败: {e}")
+            return None
     
     def get_worldview_list(self, limit: int = 50, offset: int = 0, 
                           status: str = "active") -> List[Dict[str, Any]]:
@@ -220,30 +261,73 @@ class WorldViewDatabase:
         try:
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
+                    # 直接更新各个子表，避免存储过程参数不匹配问题
+                    # 1. 更新主表
                     cursor.execute("""
-                        SELECT update_worldview_complete(
-                            %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s
-                        )
+                        UPDATE worldviews 
+                        SET name = %s, description = %s, core_concept = %s, updated_at = NOW()
+                        WHERE worldview_id = %s
                     """, (
-                        worldview_id,
                         worldview_data.get('name'),
-                        worldview_data.get('description'),
+                        worldview_data.get('description'), 
                         worldview_data.get('core_concept'),
-                        json.dumps(worldview_data.get('power_system', {}).get('cultivation_realms', [])),
-                        json.dumps(worldview_data.get('power_system', {}).get('energy_types', [])),
-                        json.dumps(worldview_data.get('power_system', {}).get('technique_categories', [])),
-                        json.dumps(worldview_data.get('geography', {}).get('main_regions', [])),
-                        json.dumps(worldview_data.get('geography', {}).get('special_locations', [])),
-                        json.dumps(worldview_data.get('culture', {}).get('organizations', [])),
-                        json.dumps(worldview_data.get('culture', {}).get('social_hierarchy', {})),
-                        json.dumps(worldview_data.get('history', {}).get('historical_events', [])),
-                        json.dumps(worldview_data.get('history', {}).get('cultural_features', [])),
-                        json.dumps(worldview_data.get('history', {}).get('current_conflicts', []))
+                        worldview_id
                     ))
                     
-                    result = cursor.fetchone()
+                    # 2. 更新或插入力量体系
+                    power_system_data = worldview_data.get('power_system', {})
+                    # 确保 power_system_data 是字典类型
+                    if isinstance(power_system_data, str):
+                        try:
+                            power_system_data = json.loads(power_system_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"power_system 数据不是有效的JSON: {power_system_data}")
+                            power_system_data = {}
+                    elif not isinstance(power_system_data, dict):
+                        logger.warning(f"power_system 数据类型错误: {type(power_system_data)}")
+                        power_system_data = {}
+                    
+                    cursor.execute("""
+                        INSERT INTO power_systems (worldview_id, cultivation_realms)
+                        VALUES (%s, %s)
+                        ON CONFLICT (worldview_id) 
+                        DO UPDATE SET 
+                            cultivation_realms = EXCLUDED.cultivation_realms,
+                            updated_at = NOW()
+                    """, (
+                        worldview_id,
+                        json.dumps(power_system_data.get('cultivation_realms', []))
+                    ))
+                    
+                    # 3. 更新或插入地理设定
+                    geography_data = worldview_data.get('geography', {})
+                    # 确保 geography_data 是字典类型
+                    if isinstance(geography_data, str):
+                        try:
+                            geography_data = json.loads(geography_data)
+                        except json.JSONDecodeError:
+                            logger.warning(f"geography 数据不是有效的JSON: {geography_data}")
+                            geography_data = {}
+                    elif not isinstance(geography_data, dict):
+                        logger.warning(f"geography 数据类型错误: {type(geography_data)}")
+                        geography_data = {}
+                    
+                    cursor.execute("""
+                        INSERT INTO geographies (worldview_id, regions, main_regions, special_locations)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (worldview_id) 
+                        DO UPDATE SET 
+                            regions = EXCLUDED.regions,
+                            main_regions = EXCLUDED.main_regions,
+                            special_locations = EXCLUDED.special_locations,
+                            updated_at = NOW()
+                    """, (
+                        worldview_id,
+                        json.dumps(geography_data.get('regions', [])),
+                        json.dumps(geography_data.get('main_regions', [])),
+                        json.dumps(geography_data.get('special_locations', []))
+                    ))
+                    
                     conn.commit()
                     
                     logger.info(f"成功更新世界观数据: {worldview_id}")

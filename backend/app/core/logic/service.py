@@ -3,44 +3,38 @@
 """
 from typing import Dict, List, Any, Optional
 import asyncio
-from openai import AsyncAzureOpenAI
 
-from app.core.config import settings
-from app.utils import llm_client
-from app.utils.prompt_manager import prompt_manager
+from app.utils.llm_client import get_llm_client
+from app.utils.prompt_manager import PromptManager
+from app.core.logic.engine import LogicCheckEngine
+from app.core.logic.models import LogicCheckResult, LogicStatus
 
 
 class LogicReflectionService:
     """叙事逻辑与反思引擎服务类"""
     
     def __init__(self):
-        pass
+        self.llm_client = get_llm_client()
+        self.prompt_manager = PromptManager()
+        self.logic_engine = LogicCheckEngine()
     
-    async def check_logic_consistency(self, content: Dict[str, Any]) -> Dict[str, Any]:
-        """检查逻辑一致性"""
+    async def check_logic_consistency(self, content: str) -> Dict[str, Any]:
+        """检查逻辑一致性（兼容旧接口）"""
         try:
-            prompt = prompt_manager.build_prompt(
-                "logic_check",
-                content=content
-            )
-            
-            response = await self.client.chat.completions.create(
-                model=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                messages=[
-                    {"role": "system", "content": prompt_manager.get_logic_check_prompt()},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=20000
-            )
-            
-            result = response
-            return {"status": "success", "analysis": result}
-            
+            result = await self.logic_engine.check_logic(content)
+            return {
+                "status": "success", 
+                "analysis": result.summary,
+                "logic_result": result.dict()
+            }
         except Exception as e:
             return {"status": "error", "message": str(e)}
     
-    async def generate_reflection_report(self, content: Dict[str, Any]) -> Dict[str, Any]:
+    async def check_logic_detailed(self, content: str, checked_by: str = "system") -> LogicCheckResult:
+        """详细逻辑检查（新接口）"""
+        return await self.logic_engine.check_logic(content, checked_by)
+    
+    async def generate_reflection_report(self, content: str) -> Dict[str, Any]:
         """生成反思报告"""
         try:
             prompt = f"""
@@ -58,18 +52,13 @@ class LogicReflectionService:
 请以JSON格式返回报告。
 """
             
-            response = await self.client.chat.completions.create(
-                model=settings.AZURE_OPENAI_DEPLOYMENT_NAME,
-                messages=[
-                    {"role": "system", "content": "你是一个专业的编辑，擅长分析小说内容并提供改进建议。"},
-                    {"role": "user", "content": prompt}
-                ],
+            response = await self.llm_client.generate_text(
+                prompt=prompt,
                 temperature=0.3,
                 max_tokens=20000
             )
             
-            result = response
-            return {"status": "success", "report": result}
+            return {"status": "success", "report": response}
             
         except Exception as e:
             return {"status": "error", "message": str(e)}

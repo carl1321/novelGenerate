@@ -8,7 +8,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import WorldView from './pages/WorldView';
 import Character from './pages/Character';
-import Plot from './pages/Plot';
+import PlotOutline from './pages/PlotOutline';
 import ChapterOutline from './pages/ChapterOutline';
 import Events from './pages/Events';
 import DetailedPlot from './pages/DetailedPlot';
@@ -34,7 +34,7 @@ const App: React.FC = () => {
               <Route path="/" element={<Home />} />
               <Route path="/world" element={<WorldView />} />
               <Route path="/character" element={<Character />} />
-              <Route path="/plot-outline" element={<Plot />} />
+              <Route path="/plot-outline" element={<PlotOutline />} />
               <Route path="/chapter-outline" element={<ChapterOutline />} />
               <Route path="/events" element={<Events />} />
               <Route path="/detailed-plot" element={<DetailedPlot />} />

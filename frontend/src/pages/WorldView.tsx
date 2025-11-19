@@ -1,77 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Form, message, List, Tag, Space, Progress, Alert, Modal, Drawer, Checkbox } from 'antd';
-import { PlusOutlined, SearchOutlined, GlobalOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, GlobalOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ThunderboltOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 
-// 格式化社会组织内容
-const formatSocietyContent = (society: any) => {
-  if (!society) return "暂无设定";
-  
-  const organizations = society.organizations || [];
-  const socialSystem = society.social_system || {};
-  
-  return (
-    <div>
-      {organizations.length > 0 && (
-        <div>
-          <h4>主要组织</h4>
-          {organizations.map((org: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof org === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{org}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{org.name}</strong> ({org.type})
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {org.description && <div>描述: {org.description}</div>}
-                  {org.power_level && <div>实力等级: {org.power_level}</div>}
-                  {org.ideology && <div>理念宗旨: {org.ideology}</div>}
-                  {org.structure && <div>组织结构: {org.structure}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
-      {(Object.keys(socialSystem).length > 0 || typeof socialSystem === 'string') && (
-        <div style={{ marginTop: 15 }}>
-          <h4>社会制度</h4>
-          {typeof socialSystem === 'string' ? (
-            <div>{socialSystem}</div>
-          ) : (
-            <div>
-              {socialSystem.hierarchy && <div>等级制度: {socialSystem.hierarchy}</div>}
-              {socialSystem.economy && <div>经济体系: {socialSystem.economy}</div>}
-              {socialSystem.trading && <div>交易方式: {socialSystem.trading}</div>}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // 格式化力量体系内容
 const formatPowerSystemContent = (powerSystem: any) => {
   if (!powerSystem) return "暂无设定";
   
   const realms = powerSystem.cultivation_realms || [];
-  const energyTypes = powerSystem.energy_types || [];
-  const techniques = powerSystem.technique_categories || [];
   
   return (
     <div>
       {realms.length > 0 && (
         <div>
-          <h4>修炼境界</h4>
+          <h4>修炼境界 (共{realms.length}个)</h4>
           {realms.map((realm: any, index: number) => {
             // 处理字符串数组格式
             if (typeof realm === 'string') {
@@ -88,6 +32,11 @@ const formatPowerSystemContent = (powerSystem: any) => {
                 <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
                   {realm.description && <div>描述: {realm.description}</div>}
                   {realm.requirements && <div>突破要求: {realm.requirements}</div>}
+                  {realm.energy_type && (
+                    <div style={{ color: '#1890ff', marginTop: 5 }}>
+                      <strong>能量类型:</strong> {realm.energy_type}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -95,54 +44,8 @@ const formatPowerSystemContent = (powerSystem: any) => {
         </div>
       )}
       
-      {energyTypes.length > 0 && (
-        <div style={{ marginTop: 15 }}>
-          <h4>能量类型</h4>
-          {energyTypes.map((energy: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof energy === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{energy}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{energy.name}</strong> ({energy.rarity})
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {energy.description && <div>描述: {energy.description}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
-      {techniques.length > 0 && (
-        <div style={{ marginTop: 15 }}>
-          <h4>功法分类</h4>
-          {techniques.map((technique: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof technique === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{technique}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{technique.name}</strong> ({technique.difficulty})
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {technique.description && <div>描述: {technique.description}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {realms.length === 0 && (
+        <div style={{ color: '#999' }}>暂无修炼境界数据</div>
       )}
     </div>
   );
@@ -150,16 +53,26 @@ const formatPowerSystemContent = (powerSystem: any) => {
 
 // 格式化地理设定内容
 const formatGeographyContent = (geography: any) => {
-  if (!geography) return "暂无设定";
+  console.log('formatGeographyContent 接收到的数据:', geography);
+  if (!geography) {
+    console.log('geography 为空，返回暂无设定');
+    return "暂无设定";
+  }
   
-  const regions = geography.main_regions || [];
+  const regions = geography.main_regions || geography.regions || [];
   const locations = geography.special_locations || [];
+  console.log('main_regions 数量:', regions.length, 'special_locations 数量:', locations.length);
+  
+  // 如果没有任何数据，显示提示
+  if (regions.length === 0 && locations.length === 0) {
+    return <div style={{ color: '#999' }}>暂无地理设定数据</div>;
+  }
   
   return (
     <div>
       {regions.length > 0 && (
         <div>
-          <h4>主要区域</h4>
+          <h4>主要区域 (共{regions.length}个)</h4>
           {regions.map((region: any, index: number) => {
             // 处理字符串数组格式
             if (typeof region === 'string') {
@@ -171,12 +84,71 @@ const formatGeographyContent = (geography: any) => {
             }
             // 处理对象格式
             return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{region.name}</strong> ({region.type})
+              <div key={index} style={{ marginBottom: 15, border: '1px solid #e8e8e8', padding: '10px', borderRadius: '4px', backgroundColor: '#fff' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: '#1890ff' }}>
+                  {region.name || '未命名区域'} 
+                  {region.type && <span style={{ fontSize: '14px', color: '#666', marginLeft: '8px' }}>({region.type})</span>}
+                </div>
                 <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {region.description && <div>描述: {region.description}</div>}
-                  {region.resources && <div>资源: {region.resources.join(', ')}</div>}
-                  {region.special_features && <div>特色: {region.special_features}</div>}
+                  {region.description && (
+                    <div style={{ marginBottom: '8px', lineHeight: '1.6' }}>
+                      <strong>描述：</strong>{region.description}
+                    </div>
+                  )}
+                  {region.area_scope && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>区域范围：</strong>{region.area_scope}
+                    </div>
+                  )}
+                  {region.boundaries && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>边界：</strong>{region.boundaries}
+                    </div>
+                  )}
+                  {region.resources && region.resources.length > 0 && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>资源：</strong>{region.resources.join(', ')}
+                    </div>
+                  )}
+                  {region.special_features && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <strong>特殊特征：</strong>{region.special_features}
+                    </div>
+                  )}
+                  
+                  {/* 显示势力分布 */}
+                  {region.forces && region.forces.length > 0 && (
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#1890ff', marginBottom: '5px' }}>势力分布:</div>
+                      {region.forces.map((force: any, forceIndex: number) => (
+                        <div key={forceIndex} style={{ marginLeft: '10px', marginBottom: '8px', padding: '5px', backgroundColor: '#f5f5f5', borderRadius: '3px' }}>
+                          <div style={{ fontWeight: 'bold' }}>{force.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            {force.type} | 实力: {force.power_level} | 影响: {force.influence}
+                          </div>
+                          {force.description && <div style={{ fontSize: '12px', marginTop: '2px' }}>{force.description}</div>}
+                          {force.resources_controlled && force.resources_controlled.length > 0 && (
+                            <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                              控制资源: {force.resources_controlled.join(', ')}
+                            </div>
+                          )}
+                          {force.relationships && (
+                            <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                              {force.relationships.allies && force.relationships.allies.length > 0 && (
+                                <span style={{ color: '#52c41a' }}>盟友: {force.relationships.allies.join(', ')} </span>
+                              )}
+                              {force.relationships.enemies && force.relationships.enemies.length > 0 && (
+                                <span style={{ color: '#ff4d4f' }}>敌人: {force.relationships.enemies.join(', ')} </span>
+                              )}
+                              {force.relationships.neutral && force.relationships.neutral.length > 0 && (
+                                <span style={{ color: '#faad14' }}>中立: {force.relationships.neutral.join(', ')}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -204,6 +176,7 @@ const formatGeographyContent = (geography: any) => {
                   {location.description && <div>描述: {location.description}</div>}
                   {location.significance && <div>重要性: {location.significance}</div>}
                   {location.dangers && <div>危险: {location.dangers.join(', ')}</div>}
+                  {location.controlled_by && <div style={{ color: '#1890ff' }}>控制势力: {location.controlled_by}</div>}
                 </div>
               </div>
             );
@@ -214,102 +187,11 @@ const formatGeographyContent = (geography: any) => {
   );
 };
 
-// 格式化历史文化内容
-const formatHistoryContent = (history: any) => {
-  if (!history) return "暂无设定";
-  
-  const events = history.historical_events || [];
-  const features = history.cultural_features || [];
-  const conflicts = history.current_conflicts || [];
-  
-  return (
-    <div>
-      {events.length > 0 && (
-        <div>
-          <h4>历史事件</h4>
-          {events.map((event: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof event === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{event}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{event.name}</strong> ({event.time_period})
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {event.description && <div>描述: {event.description}</div>}
-                  {event.impact && <div>影响: {event.impact}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
-      {features.length > 0 && (
-        <div style={{ marginTop: 15 }}>
-          <h4>文化特色</h4>
-          {features.map((feature: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof feature === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{feature}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{feature.region}</strong>
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {feature.traditions && <div>传统习俗: {feature.traditions}</div>}
-                  {feature.values && <div>价值观念: {feature.values}</div>}
-                  {feature.lifestyle && <div>生活方式: {feature.lifestyle}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
-      {conflicts.length > 0 && (
-        <div style={{ marginTop: 15 }}>
-          <h4>当前冲突</h4>
-          {conflicts.map((conflict: any, index: number) => {
-            // 处理字符串数组格式
-            if (typeof conflict === 'string') {
-              return (
-                <div key={index} style={{ marginBottom: 10 }}>
-                  <strong>{conflict}</strong>
-                </div>
-              );
-            }
-            // 处理对象格式
-            return (
-              <div key={index} style={{ marginBottom: 10 }}>
-                <strong>{conflict.name}</strong>
-                <div style={{ marginLeft: 10, fontSize: '14px', color: '#666' }}>
-                  {conflict.description && <div>描述: {conflict.description}</div>}
-                  {conflict.parties && <div>参与方: {conflict.parties.join(', ')}</div>}
-                  {conflict.stakes && <div>利害关系: {conflict.stakes}</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const WorldView: React.FC = () => {
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
+  const [directEditForm] = Form.useForm();
   const [worldViews, setWorldViews] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
@@ -317,9 +199,11 @@ const WorldView: React.FC = () => {
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   
   // 新增状态
+  const [createModalVisible, setCreateModalVisible] = useState(false);
   const [selectedWorldView, setSelectedWorldView] = useState<any>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [directEditVisible, setDirectEditVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [worldViewToDelete, setWorldViewToDelete] = useState<any>(null);
 
@@ -327,9 +211,9 @@ const WorldView: React.FC = () => {
   const fetchWorldViews = async (keyword?: string) => {
     setListLoading(true);
     try {
-      let url = 'http://localhost:8000/api/v1/world/list';
+      let url = 'http://localhost:8001/api/v1/world/list';
       if (keyword && keyword.trim()) {
-        url = `http://localhost:8000/api/v1/world/search?q=${encodeURIComponent(keyword.trim())}`;
+        url = `http://localhost:8001/api/v1/world/search?q=${encodeURIComponent(keyword.trim())}`;
       }
       
       const response = await fetch(url);
@@ -369,7 +253,7 @@ const WorldView: React.FC = () => {
     setLoading(true);
     setTaskStatus('processing');
     try {
-      const response = await fetch('http://localhost:8000/api/v1/world/create', {
+      const response = await fetch('http://localhost:8001/api/v1/world/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -388,6 +272,9 @@ const WorldView: React.FC = () => {
       const worldView = await response.json();
       message.success('世界观创建成功！');
       form.resetFields();
+      
+      // 关闭弹窗
+      setCreateModalVisible(false);
       
       // 刷新世界观列表
       await fetchWorldViews();
@@ -408,29 +295,42 @@ const WorldView: React.FC = () => {
   // 查看详情
   const handleViewDetail = async (worldView: any) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/world/${worldView.worldview_id}`);
+      const response = await fetch(`http://localhost:8001/api/v1/world/${worldView.worldview_id}`);
       if (!response.ok) {
         throw new Error('获取世界观详情失败');
       }
       const detail = await response.json();
-      setSelectedWorldView(detail);
+      console.log('API返回的详情数据:', detail);
+      console.log('geography字段:', detail.geography);
+      // 确保字段名一致，将id映射为worldview_id
+      const normalizedDetail = {
+        ...detail,
+        worldview_id: detail.id || detail.worldview_id
+      };
+      console.log('标准化后的详情数据:', normalizedDetail);
+      setSelectedWorldView(normalizedDetail);
       setDetailVisible(true);
     } catch (error: any) {
       message.error(`获取详情失败: ${error.message}`);
     }
   };
 
-  // 编辑世界观
-  const handleEdit = async (worldView: any) => {
+  // 进化世界观
+  const handleEvolution = async (worldView: any) => {
     try {
       // 先获取完整的世界观数据
-      const response = await fetch(`http://localhost:8000/api/v1/world/${worldView.worldview_id}`);
+      const response = await fetch(`http://localhost:8001/api/v1/world/${worldView.worldview_id}`);
       if (!response.ok) {
         throw new Error('获取世界观详情失败');
       }
       const detail = await response.json();
       
-      setSelectedWorldView(detail);
+      // 确保字段名一致，将id映射为worldview_id
+      const normalizedDetail = {
+        ...detail,
+        worldview_id: detail.id || detail.worldview_id
+      };
+      setSelectedWorldView(normalizedDetail);
       editForm.setFieldsValue({
         coreConcept: detail.core_concept,
         description: detail.description,
@@ -442,6 +342,50 @@ const WorldView: React.FC = () => {
       message.error(`获取世界观详情失败: ${error.message}`);
     }
   };
+
+  // 直接编辑世界观
+  const handleDirectEdit = async (worldView: any) => {
+    try {
+      // 先获取完整的世界观数据
+      const response = await fetch(`http://localhost:8001/api/v1/world/${worldView.worldview_id}`);
+      if (!response.ok) {
+        throw new Error('获取世界观详情失败');
+      }
+      const detail = await response.json();
+      console.log('直接编辑 - API返回的详情数据:', detail);
+      console.log('直接编辑 - geography字段:', detail.geography);
+      
+      // 确保字段名一致，将id映射为worldview_id
+      const normalizedDetail = {
+        ...detail,
+        worldview_id: detail.id || detail.worldview_id
+      };
+      setSelectedWorldView(normalizedDetail);
+      
+      // 将JSON数据转换为可读的文本格式
+      const formatJsonToText = (data: any) => {
+        if (!data) return '';
+        
+        if (typeof data === 'string') return data;
+        if (typeof data !== 'object') return String(data);
+        
+        // 直接返回格式化的JSON字符串，便于编辑
+        return JSON.stringify(data, null, 2);
+      };
+      
+      directEditForm.setFieldsValue({
+        name: detail.name,
+        coreConcept: detail.core_concept,
+        description: detail.description,
+        power_system: formatJsonToText(detail.power_system),
+        geography: formatJsonToText(detail.geography)
+      });
+      setDirectEditVisible(true);
+    } catch (error: any) {
+      message.error(`获取世界观详情失败: ${error.message}`);
+    }
+  };
+
 
   // 保存编辑
   const handleSaveEdit = async (values: any) => {
@@ -456,7 +400,7 @@ const WorldView: React.FC = () => {
         // 使用部分更新接口
         const updateDimensions = values.updateOptions; // 直接使用数组
         
-        const response = await fetch(`http://localhost:8000/api/v1/world/${selectedWorldView.worldview_id}/partial`, {
+        const response = await fetch(`http://localhost:8001/api/v1/world/${selectedWorldView.worldview_id}/partial`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -476,7 +420,7 @@ const WorldView: React.FC = () => {
         message.success(`世界观部分更新成功！更新了 ${updateDimensions.length} 个维度`);
       } else {
         // 只更新基本信息，使用原来的接口
-        const response = await fetch(`http://localhost:8000/api/v1/world/${selectedWorldView.worldview_id}`, {
+        const response = await fetch(`http://localhost:8001/api/v1/world/${selectedWorldView.worldview_id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -487,9 +431,7 @@ const WorldView: React.FC = () => {
             additional_requirements: values.updateRequirements ? { "requirements": values.updateRequirements } : {},
             update_options: {
               power_system: false,
-              geography: false,
-              culture: false,
-              history: false
+              geography: false
             }
           }),
         });
@@ -510,6 +452,72 @@ const WorldView: React.FC = () => {
     }
   };
 
+  // 保存直接编辑
+  const handleSaveDirectEdit = async (values: any) => {
+    if (!selectedWorldView) return;
+    
+    setLoading(true);
+    try {
+      // 将JSON文本转换回JSON对象
+      const parseTextToJson = (text: string, type: 'power_system' | 'geography') => {
+        if (!text || text.trim() === '') {
+          // 如果文本为空，返回null表示不更新该字段
+          console.log(`${type}字段为空，保持现有数据不变`);
+          return null;
+        }
+        
+        try {
+          // 直接解析JSON格式
+          const parsed = JSON.parse(text);
+          console.log(`成功解析${type}的JSON数据`);
+          return parsed;
+        } catch (e) {
+          console.warn(`解析${type}的JSON数据失败:`, e);
+          // 解析失败时返回null，保持现有数据不变
+          return null;
+        }
+      };
+      
+
+      // 构建请求数据，只包含非null的字段
+      const requestData: any = {
+        name: values.name,
+        core_concept: values.coreConcept,
+        description: values.description
+      };
+      
+      const powerSystemData = parseTextToJson(values.power_system, 'power_system');
+      const geographyData = parseTextToJson(values.geography, 'geography');
+      
+      if (powerSystemData !== null) {
+        requestData.power_system = powerSystemData;
+      }
+      if (geographyData !== null) {
+        requestData.geography = geographyData;
+      }
+      
+      const response = await fetch(`http://localhost:8001/api/v1/world/${selectedWorldView.worldview_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('更新世界观失败');
+      }
+      
+      message.success('世界观编辑成功！');
+      setDirectEditVisible(false);
+      await fetchWorldViews(); // 刷新列表
+    } catch (error: any) {
+      message.error(`编辑失败: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 删除世界观
   const handleDelete = (worldView: any) => {
     setWorldViewToDelete(worldView);
@@ -522,7 +530,7 @@ const WorldView: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/world/${worldViewToDelete.worldview_id}`, {
+      const response = await fetch(`http://localhost:8001/api/v1/world/${worldViewToDelete.worldview_id}`, {
         method: 'DELETE',
       });
 
@@ -542,37 +550,24 @@ const WorldView: React.FC = () => {
 
   return (
     <div>
-      <Card title="1. 世界观生成" style={{ marginBottom: 16 }}>
-        <Form form={form} onFinish={handleCreateWorldView} layout="vertical">
-          <Form.Item
-            name="coreConcept"
-            label="核心概念"
-            rules={[{ required: true, message: '请输入核心概念' }]}
+      {/* 世界观创建工作区 */}
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <GlobalOutlined style={{ fontSize: 48, color: '#1890ff', marginBottom: 16 }} />
+          <h3 style={{ marginBottom: 8 }}>世界观生成智能体</h3>
+          <p style={{ color: '#666', marginBottom: 24 }}>
+            强大的人工智能助手，帮您构建完整的世界观体系
+          </p>
+          <Button 
+            type="primary" 
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateModalVisible(true)}
+            style={{ minWidth: 200 }}
           >
-            <Input placeholder="例如：洪荒修仙、克苏鲁修仙等" />
-          </Form.Item>
-          
-          <Form.Item
-            name="description"
-            label="详细描述"
-            rules={[{ required: true, message: '请输入详细描述' }]}
-          >
-            <TextArea rows={4} placeholder="描述你的世界观设定..." />
-          </Form.Item>
-          
-          <Form.Item
-            name="updateRequirements"
-            label="特殊要求"
-          >
-            <TextArea rows={3} placeholder="可选：特殊要求、风格偏好、限制条件等..." />
-          </Form.Item>
-          
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} icon={<PlusOutlined />}>
-              {loading ? '正在创建...' : '创建世界观'}
-            </Button>
-          </Form.Item>
-        </Form>
+            创建新世界观
+          </Button>
+        </div>
         
         {/* 任务状态显示 */}
         {taskStatus === 'processing' && (
@@ -670,8 +665,15 @@ const WorldView: React.FC = () => {
                 </Button>,
                 <Button 
                   type="link" 
+                  icon={<ThunderboltOutlined />}
+                  onClick={() => handleEvolution(item)}
+                >
+                  进化
+                </Button>,
+                <Button 
+                  type="link" 
                   icon={<EditOutlined />}
-                  onClick={() => handleEdit(item)}
+                  onClick={() => handleDirectEdit(item)}
                 >
                   编辑
                 </Button>,
@@ -729,48 +731,31 @@ const WorldView: React.FC = () => {
             <p><strong>更新时间:</strong> {new Date(selectedWorldView.updated_at).toLocaleString()}</p>
             
             {/* 显示5维度内容 */}
-            {selectedWorldView.power_system && (
-              <div style={{ marginTop: 20 }}>
-                <h3>力量体系</h3>
-                <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
-                  {formatPowerSystemContent(selectedWorldView.power_system)}
-                </div>
+            <div style={{ marginTop: 20 }}>
+              <h3>力量体系</h3>
+              <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
+                {formatPowerSystemContent(selectedWorldView.power_system)}
               </div>
-            )}
+            </div>
             
-            {selectedWorldView.geography && (
-              <div style={{ marginTop: 20 }}>
-                <h3>地理设定</h3>
-                <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
-                  {formatGeographyContent(selectedWorldView.geography)}
-                </div>
+            <div style={{ marginTop: 20 }}>
+              <h3>地理设定</h3>
+              <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
+                {(() => {
+                  console.log('selectedWorldView.geography:', selectedWorldView.geography);
+                  return formatGeographyContent(selectedWorldView.geography);
+                })()}
               </div>
-            )}
+            </div>
             
-            {selectedWorldView.culture && (
-              <div style={{ marginTop: 20 }}>
-                <h3>社会组织</h3>
-                <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
-                  {formatSocietyContent(selectedWorldView.culture)}
-                </div>
-              </div>
-            )}
             
-            {selectedWorldView.history && (
-              <div style={{ marginTop: 20 }}>
-                <h3>历史文化</h3>
-                <div style={{ background: '#f5f5f5', padding: 15, borderRadius: 4 }}>
-                  {formatHistoryContent(selectedWorldView.history)}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Drawer>
 
-      {/* 编辑模态框 */}
+      {/* 进化模态框 */}
       <Modal
-        title="编辑世界观"
+        title="进化世界观"
         open={editVisible}
         onCancel={() => setEditVisible(false)}
         footer={null}
@@ -810,8 +795,6 @@ const WorldView: React.FC = () => {
               <Space direction="vertical">
                 <Checkbox value="power_system">力量体系</Checkbox>
                 <Checkbox value="geography">地理设定</Checkbox>
-                <Checkbox value="culture">社会组织</Checkbox>
-                <Checkbox value="history">历史文化</Checkbox>
               </Space>
             </Checkbox.Group>
           </Form.Item>
@@ -823,6 +806,127 @@ const WorldView: React.FC = () => {
               </Button>
               <Button onClick={() => setEditVisible(false)}>
                 取消
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 直接编辑模态框 */}
+      <Modal
+        title="编辑世界观"
+        open={directEditVisible}
+        onCancel={() => setDirectEditVisible(false)}
+        footer={null}
+        width={800}
+      >
+        <Form form={directEditForm} onFinish={handleSaveDirectEdit} layout="vertical">
+          <Form.Item
+            name="name"
+            label="世界观名称"
+            rules={[{ required: true, message: '请输入世界观名称' }]}
+          >
+            <Input placeholder="例如：九墟界、洪荒世界等" />
+          </Form.Item>
+          
+          <Form.Item
+            name="coreConcept"
+            label="核心概念"
+            rules={[{ required: true, message: '请输入核心概念' }]}
+          >
+            <Input placeholder="例如：洪荒修仙、克苏鲁修仙等" />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label="详细描述"
+            rules={[{ required: true, message: '请输入详细描述' }]}
+          >
+            <TextArea rows={4} placeholder="描述你的世界观设定..." />
+          </Form.Item>
+          
+          <Form.Item
+            name="power_system"
+            label="力量体系"
+            extra="JSON格式数据，包含cultivation_realms字段，每个境界包含name、level、description、requirements、energy_type字段"
+          >
+            <TextArea rows={8} placeholder="请输入力量体系的JSON数据..." />
+          </Form.Item>
+          
+          <Form.Item
+            name="geography"
+            label="地理设定"
+            extra="JSON格式数据，包含main_regions、regions、special_locations字段"
+          >
+            <TextArea rows={8} placeholder="请输入地理设定的JSON数据..." />
+          </Form.Item>
+          
+          
+          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setDirectEditVisible(false)}>
+                取消
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading} 
+                icon={<EditOutlined />}
+              >
+                {loading ? '正在保存...' : '保存修改'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 创建世界观弹窗 */}
+      <Modal
+        title="创建新世界观"
+        open={createModalVisible}
+        onCancel={() => {
+          setCreateModalVisible(false);
+          form.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form form={form} onFinish={handleCreateWorldView} layout="vertical">
+          <Form.Item
+            name="coreConcept"
+            label="核心概念"
+            rules={[{ required: true, message: '请输入核心概念' }]}
+          >
+            <Input placeholder="例如：洪荒修仙、克苏鲁修仙等" />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label="详细描述"
+            rules={[{ required: true, message: '请输入详细描述' }]}
+          >
+            <TextArea rows={4} placeholder="描述你的世界观设定..." />
+          </Form.Item>
+          
+          <Form.Item
+            name="updateRequirements"
+            label="特殊要求"
+          >
+            <TextArea rows={3} placeholder="可选：特殊要求、风格偏好、限制条件等..." />
+          </Form.Item>
+          
+          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setCreateModalVisible(false)}>
+                取消
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading} 
+                icon={<PlusOutlined />}
+              >
+                {loading ? '正在创建...' : '创建世界观'}
               </Button>
             </Space>
           </Form.Item>

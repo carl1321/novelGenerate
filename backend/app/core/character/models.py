@@ -82,34 +82,14 @@ class GoalType(str, Enum):
 
 
 class CharacterRoleType(str, Enum):
-    """角色类型枚举"""
-    PROTAGONIST = "主角"
-    SUPPORTING = "配角"
-    ANTAGONIST = "反派"
-    MENTOR = "导师"
-    ALLY = "盟友"
-    EXTRA = "路人"
-    # 新增的角色类型
-    LOYAL_COMPANION = "忠诚伙伴"
-    REBEL_ALLY = "叛逆盟友"
-    TECH_SUPPORT = "技术支援"
-    MYSTERIOUS_GUIDE = "神秘向导"
-    FRIEND_FOE = "亦敌亦友"
-    HEALING_SUPPORT = "治愈辅助"
-    HOT_BLOODED_WARRIOR = "热血斗士"
-    STRATEGIC_ADVISOR = "智囊谋士"
-    INTELLIGENCE_CONTACT = "情报联络"
-    TRAGIC_GUARDIAN = "悲情守护者"
-    JUSTICE_COMPANION = "正义伙伴"
-    REBELLIOUS_COMPANION = "叛逆伙伴"
-    MYSTERIOUS_MENTOR = "神秘导师型伙伴"
-    TECH_COMPANION = "技术型伙伴"
-    LOYAL_GUARDIAN = "忠诚护卫型伙伴"
-    HEALING_COMPANION = "治愈型伙伴"
-    FREE_SPIRIT = "自由奔放型伙伴"
-    REDEMPTION_COMPANION = "赎罪型伙伴"
-    NATURE_AFFINITY = "自然亲和型伙伴"
-    WISDOM_COMPANION = "智囊型伙伴"
+    """角色类型枚举（简化版）"""
+    PROTAGONIST = "主角"           # 故事中心角色
+    SUPPORTING = "配角"            # 配角
+    JUSTICE_COMPANION = "正义伙伴"  # 支持主角的正面角色
+    ANTAGONIST = "反派"            # 与主角对立的反面角色  
+    LOVER = "情人"                # 与主角有情感关系的角色
+    OTHER = "其他"                 # 其他类型角色
+    SPECIAL = "特殊"               # 特殊身份角色
 
 
 class Character(BaseModel):
@@ -126,13 +106,18 @@ class Character(BaseModel):
     current_location: Optional[str] = Field(None, description="当前位置")
     organization_id: Optional[str] = Field(None, description="所属组织")
     
-    # 使用JSONB存储的非结构化数据
-    personality_traits: List[Dict[str, Any]] = Field(default_factory=list, description="性格特质")
-    goals: List[Dict[str, Any]] = Field(default_factory=list, description="目标列表")
-    relationships: Dict[str, Any] = Field(default_factory=dict, description="人际关系")
+    # 使用文本存储的字段
+    personality_traits: str = Field(default="", description="性格特质描述")
+    main_goals: str = Field(default="", description="主要目标")
+    short_term_goals: str = Field(default="", description="短期目标")
+    weaknesses: str = Field(default="", description="弱点和限制")
+    appearance: str = Field(default="", description="外貌描述")
+    turning_point: str = Field(default="", description="重要转折点")
+    relationship_text: str = Field(default="", description="个人关系视角")
+    values: str = Field(default="", description="价值观和信念")
+    
+    # 使用JSONB存储的字段
     techniques: List[Dict[str, Any]] = Field(default_factory=list, description="掌握的功法")
-    artifacts: List[Dict[str, Any]] = Field(default_factory=list, description="拥有的法宝")
-    resources: Dict[str, Any] = Field(default_factory=dict, description="资源数量")
     stats: Dict[str, Any] = Field(default_factory=dict, description="属性数值")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
     

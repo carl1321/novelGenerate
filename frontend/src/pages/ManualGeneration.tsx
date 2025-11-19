@@ -104,7 +104,7 @@ const ManualGeneration: React.FC = () => {
   // 模拟API调用
   const callAPI = async (endpoint: string, data: any = {}) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/${endpoint}`, {
+      const response = await fetch(`http://localhost:8001/api/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +146,7 @@ const ManualGeneration: React.FC = () => {
 
     updateStepStatus('worldview', 'generating');
     try {
-      const response = await fetch('http://localhost:8000/api/v1/world/create', {
+      const response = await fetch('http://localhost:8001/api/v1/world/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ const ManualGeneration: React.FC = () => {
   // 获取可用章节
   const fetchChapters = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/chapters');
+      const response = await fetch('http://localhost:8001/api/chapters');
       const result = await response.json();
       if (result.success) {
         setAvailableChapters(result.data);
@@ -257,7 +257,7 @@ const ManualGeneration: React.FC = () => {
   // 获取可用事件
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/events');
+      const response = await fetch('http://localhost:8001/api/events');
       const result = await response.json();
       if (result.success) {
         setAvailableEvents(result.data);

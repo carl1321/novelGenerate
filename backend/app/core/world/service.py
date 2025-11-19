@@ -5,7 +5,9 @@ from typing import Dict, List, Any, Optional
 
 from app.core.world.models import WorldView
 from app.core.world.rule_engine import RuleEngine
-from app.utils.llm_generator import universal_llm_generator
+from app.utils.llm_client import get_llm_client
+from app.utils.prompt_manager import PromptManager
+from app.utils.dynamic_parser import dynamic_parser
 from app.core.world.database import worldview_db
 from app.utils.file_writer import FileWriter
 
@@ -15,22 +17,39 @@ class WorldService:
     
     def __init__(self):
         self.rule_engine = RuleEngine()
-        # 使用通用LLM生成器
+        self.llm_client = get_llm_client()
+        self.prompt_manager = PromptManager()
         self.file_writer = FileWriter()
     
     async def create_world_view(self, core_concept: str, 
                               description: Optional[str] = None,
-                              additional_requirements: Optional[Dict[str, Any]] = None) -> WorldView:
+                              additional_requirements: Optional[Dict[str, Any]] = None,
+                              temperature: float = 0.7) -> WorldView:
         """创建世界观"""
         try:
-            # 使用通用LLM生成器生成世界观
-            world_data = await universal_llm_generator.generate_world_view(
-                core_concept=core_concept,
-                description=description,
-                additional_requirements=str(additional_requirements) if additional_requirements else None
+            # 整合核心概念和描述
+            full_concept = core_concept
+            if description:
+                full_concept = f"{core_concept}\n\n详细描述：{description}"
+            
+            # 获取世界观生成prompt
+            prompt = self.prompt_manager.get_world_generation_prompt(
+                core_concept=full_concept,
+                additional_requirements=str(additional_requirements) if additional_requirements else "无特殊要求"
             )
             
+            # 调用LLM生成世界观数据
+            response = await self.llm_client.generate_text(prompt, temperature=temperature)
+            
+            # 解析响应
+            world_data = dynamic_parser.parse_json(response)
+            if not world_data:
+                raise Exception("LLM返回格式错误或无法解析")
+            
             # 创建WorldView对象
+            # 处理历史文化数据
+            history_culture_data = world_data.get("history_culture", {})
+            
             world_view = WorldView(
                 id=f"world_{hash(core_concept)}",
                 name=world_data.get("name", "未命名世界观"),
@@ -39,7 +58,7 @@ class WorldService:
                 power_system=world_data.get("power_system", {}),
                 geography=world_data.get("geography", {}),
                 culture=world_data.get("society", {}),
-                history=world_data.get("history_culture", {}),
+                history=history_culture_data,
                 rules=world_data.get("rules", []),
                 locations=world_data.get("locations", []),
                 organizations=world_data.get("organizations", []),
@@ -85,15 +104,18 @@ class WorldService:
             # 直接从PostgreSQL数据库获取世界观数据
             world_data = worldview_db.get_worldview(world_view_id)
             if world_data:
+                # 构建地理设定数据
+                geography = world_data.get("geography", {})
+                
                 return WorldView(
                     id=world_data["worldview_id"],
                     name=world_data["name"],
                     description=world_data["description"],
                     core_concept=world_data["core_concept"],
                     power_system=world_data.get("power_system", {}),
-                    geography=world_data.get("geography", {}),
-                    history=world_data.get("history", {}),
-                    culture=world_data.get("culture", {})
+                    geography=geography,
+                    history=world_data.get("historical_culture", {}),
+                    culture=world_data.get("social_structure", {})
                 )
             return None
             

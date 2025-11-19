@@ -10,6 +10,9 @@ import {
   PlayCircleOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  SettingOutlined,
+  LinkOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -49,14 +52,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: '3. 剧情大纲',
     },
     {
-      key: '/chapter-outline',
-      icon: <BulbOutlined />,
-      label: '4. 章节大纲',
-    },
-    {
       key: '/events',
       icon: <CalendarOutlined />,
-      label: '5. 事件生成',
+      label: '4. 事件管理',
+    },
+    {
+      key: '/chapter-outline',
+      icon: <BulbOutlined />,
+      label: '5. 章节大纲',
     },
     {
       key: '/detailed-plot',

@@ -29,59 +29,107 @@
 - **Vite** - 快速的前端构建工具
 
 ### 后端技术栈
-- **Python 3.8+** - 主要编程语言
+- **Python 3.9+** - 主要编程语言
 - **FastAPI** - 现代、快速的Web框架
 - **Pydantic** - 数据验证和序列化
-- **asyncio** - 异步编程支持
-- **Neo4j** - 图数据库（知识图谱）
+- **PostgreSQL 15+** - 关系型数据库
+- **Redis** - 缓存和任务队列（可选）
+- **psycopg2** - PostgreSQL 数据库驱动
 
 ## 快速开始
 
-### 1. 环境要求
-- Python 3.8+
-- Node.js 16+
+### 方式一：Docker Compose 部署（推荐）
+
+最简单快速的部署方式，适合生产环境。
+
+```bash
+# 1. 配置环境变量
+cp env.example .env
+# 编辑 .env 文件，至少配置 AI API Key
+
+# 2. 启动所有服务
+docker-compose up -d
+
+# 3. 访问系统
+# 前端: http://localhost:3001
+# 后端: http://localhost:8001
+# API文档: http://localhost:8001/docs
+```
+
+详细部署说明请查看 [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+### 方式二：本地开发部署
+
+适合开发和调试。
+
+#### 1. 环境要求
+- Python 3.9+
+- Node.js 18+
+- PostgreSQL 15+
 - npm 或 yarn
 
-### 2. 安装依赖
+#### 2. 安装依赖
 
-#### 后端依赖
+**后端依赖**
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
-#### 前端依赖
+**前端依赖**
 ```bash
 cd frontend
 npm install
 ```
 
-### 3. 启动系统
+#### 3. 配置数据库
 
-#### 方式一：使用简化启动脚本（推荐）
 ```bash
-./start_simple.sh
+# 创建数据库
+createdb novel_generate
+createuser novel_user
+psql novel_generate -c "ALTER USER novel_user WITH PASSWORD 'novel_password';"
+psql novel_generate -c "GRANT ALL PRIVILEGES ON DATABASE novel_generate TO novel_user;"
+
+# 初始化数据库表
+psql -U novel_user -d novel_generate -f database/init_all_tables.sql
 ```
 
-#### 方式二：使用完整启动脚本
+#### 4. 配置环境变量
+
 ```bash
+cp env.example .env
+# 编辑 .env 文件，配置数据库连接和 AI API Key
+# 注意：本地开发时 DATABASE_URL 应使用 localhost
+```
+
+#### 5. 启动系统
+
+**使用启动脚本（推荐）**
+```bash
+# 自动检测 Docker，优先使用 Docker Compose
 ./start.sh
+
+# 或指定模式
+./start.sh docker    # Docker Compose 模式
+./start.sh local     # 本地开发模式
 ```
 
-#### 方式三：手动启动
+**手动启动**
 ```bash
-# 启动后端API服务器
-/opt/miniconda3/bin/python api_server.py
+# 启动后端
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
-# 启动前端开发服务器
+# 启动前端（新终端）
 cd frontend
 npm run dev
 ```
 
-### 4. 访问系统
-- **前端界面**: http://localhost:5173
-- **后端API**: http://localhost:8000
-- **API文档**: http://localhost:8000/docs
+#### 6. 访问系统
+- **前端界面**: http://localhost:3001
+- **后端API**: http://localhost:8001
+- **API文档**: http://localhost:8001/docs
 
 ## 使用指南
 
@@ -136,47 +184,59 @@ npm run dev
 
 ```
 novelGenerate/
-├── backend/                 # 后端代码
+├── backend/                    # 后端代码
 │   ├── app/
-│   │   ├── core/           # 核心模块
-│   │   │   ├── automation/ # 自动化生成
-│   │   │   ├── character/  # 角色生成
-│   │   │   ├── plot/       # 剧情生成
-│   │   │   ├── world/      # 世界观生成
+│   │   ├── api/               # API 路由
+│   │   ├── core/               # 核心模块
+│   │   │   ├── character/      # 角色管理
+│   │   │   ├── chapter_engine/ # 章节生成
+│   │   │   ├── detailed_plot/  # 详细剧情
+│   │   │   ├── event/          # 事件管理
+│   │   │   ├── plot_engine/    # 剧情生成
+│   │   │   ├── scoring/        # 评分系统
+│   │   │   ├── world/          # 世界观生成
 │   │   │   └── ...
-│   │   ├── utils/          # 工具函数
-│   │   └── main.py         # 主程序
-│   └── requirements.txt    # Python依赖
-├── frontend/               # 前端代码
+│   │   ├── utils/              # 工具函数
+│   │   └── main.py             # 主程序
+│   ├── Dockerfile              # Docker 镜像配置
+│   └── requirements.txt        # Python依赖
+├── frontend/                   # 前端代码
 │   ├── src/
-│   │   ├── components/     # 组件
-│   │   ├── pages/          # 页面
-│   │   └── App.tsx         # 主应用
-│   └── package.json        # Node.js依赖
-├── prompts/                # 提示词模板
-├── novel/                  # 生成的小说文件
-├── api_server.py          # API服务器
-├── start.sh               # 启动脚本
-└── README.md              # 项目说明
+│   │   ├── components/         # 组件
+│   │   ├── pages/              # 页面
+│   │   └── App.tsx             # 主应用
+│   ├── Dockerfile              # Docker 镜像配置
+│   └── package.json            # Node.js依赖
+├── database/                   # 数据库脚本
+│   ├── init_all_tables.sql     # 统一初始化脚本
+│   └── *.sql                   # 其他 SQL 脚本
+├── prompts/                    # 提示词模板
+├── novel/                      # 生成的小说文件
+├── docker-compose.yml          # Docker Compose 配置
+├── env.example                 # 环境变量模板
+├── start.sh                    # 启动脚本
+├── DEPLOYMENT.md               # 部署文档
+└── README.md                   # 项目说明
 ```
 
 ## 配置说明
 
 ### 环境变量
-创建 `.env` 文件并配置以下变量：
+复制 `env.example` 为 `.env` 并配置必要的变量：
 
-```env
-# LLM配置
-LLM_PROVIDER=azure  # 或 alibaba
-AZURE_OPENAI_API_KEY=your_key
-AZURE_OPENAI_ENDPOINT=your_endpoint
-DASHSCOPE_API_KEY=your_key
-
-# 数据库配置
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=password
+```bash
+cp env.example .env
 ```
+
+**必须配置的变量：**
+- `ALIBABA_QWEN_API_KEY` 或 `AZURE_OPENAI_API_KEY` - AI 模型 API Key
+- `DATABASE_URL` - 数据库连接字符串（Docker Compose 会自动配置）
+
+**可选配置：**
+- `LLM_PROVIDER` - LLM 提供商（azure 或 alibaba，默认 alibaba）
+- `REDIS_URL` - Redis 连接（如果使用缓存）
+
+详细配置说明请查看 `env.example` 文件。
 
 ### 自定义配置
 - 修改 `backend/app/core/config.py` 调整系统配置
@@ -199,8 +259,18 @@ NEO4J_PASSWORD=password
 
 3. **前端页面无法访问**
    - 检查前端服务是否正常启动
-   - 检查端口5173是否被占用
+   - 检查端口3001是否被占用
    - 清除浏览器缓存
+
+4. **数据库连接失败**
+   - 检查 PostgreSQL 服务是否运行
+   - 检查 `DATABASE_URL` 配置是否正确
+   - 确认数据库已初始化（执行 `init_all_tables.sql`）
+
+5. **Docker 部署问题**
+   - 查看服务日志：`docker-compose logs -f`
+   - 检查端口是否被占用
+   - 确认 `.env` 文件已正确配置
 
 ### 日志查看
 - 后端日志：控制台输出

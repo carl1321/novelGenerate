@@ -1,7 +1,7 @@
--- 剧情大纲数据库表设计
--- 创建时间: 2025-10-01
+-- 剧情大纲数据库表设计 - 完整的剧情大纲设计
+-- 创建时间: 2025-10-02
 
--- 1. 剧情大纲主表
+-- 1. 剧情大纲主表 (完整设计)
 CREATE TABLE IF NOT EXISTS plot_outlines (
     id VARCHAR(50) PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
@@ -9,20 +9,19 @@ CREATE TABLE IF NOT EXISTS plot_outlines (
     
     -- 关联信息
     worldview_id VARCHAR(50) NOT NULL,
-    character_ids JSONB DEFAULT '[]'::jsonb,
     
-    -- 剧情结构
-    structure_type VARCHAR(20) DEFAULT '三幕式',
-    total_chapters INTEGER DEFAULT 20,
+    -- 剧情大纲要求
+    story_tone VARCHAR(50) NOT NULL,
+    narrative_structure VARCHAR(50) NOT NULL,
+    story_structure VARCHAR(50) NOT NULL,
     target_word_count INTEGER DEFAULT 100000,
+    estimated_chapters INTEGER DEFAULT 20,
     
-    -- 剧情内容
-    main_conflict TEXT NOT NULL,
-    theme TEXT NOT NULL,
-    tone VARCHAR(50) NOT NULL,
-    
-    -- 角色发展
-    character_arcs JSONB DEFAULT '{}'::jsonb,
+    -- 简化的剧情大纲结构
+    story_framework JSONB NOT NULL,
+    character_positions JSONB DEFAULT '{}'::jsonb,
+    plot_blocks JSONB DEFAULT '[]'::jsonb,
+    story_flow JSONB NOT NULL,
     
     -- 元数据
     status VARCHAR(20) DEFAULT '草稿',
@@ -31,44 +30,76 @@ CREATE TABLE IF NOT EXISTS plot_outlines (
     created_by VARCHAR(50)
 );
 
--- 2. 章节大纲表
-CREATE TABLE IF NOT EXISTS chapter_outlines (
+-- 2. 关键情节点表
+CREATE TABLE IF NOT EXISTS plot_points (
     id VARCHAR(50) PRIMARY KEY,
     plot_outline_id VARCHAR(50) NOT NULL REFERENCES plot_outlines(id) ON DELETE CASCADE,
-    chapter_number INTEGER NOT NULL,
+    point_type VARCHAR(50) NOT NULL,  -- 'inciting_incident', 'first_turning_point', 'midpoint', 'second_turning_point', 'climax', 'resolution'
+    position DECIMAL(3,2) NOT NULL,   -- 在故事中的位置比例 (0.0-1.0)
     title VARCHAR(200) NOT NULL,
-    
-    -- 章节内容
-    summary TEXT NOT NULL,
-    main_events JSONB DEFAULT '[]'::jsonb,
-    key_scenes JSONB DEFAULT '[]'::jsonb,
-    
-    -- 角色参与
-    participating_characters JSONB DEFAULT '[]'::jsonb,
-    character_development JSONB DEFAULT '{}'::jsonb,
-    
-    -- 剧情推进
-    conflict_escalation TEXT NOT NULL,
-    plot_advancement TEXT NOT NULL,
+    description TEXT NOT NULL,
+    emotional_impact VARCHAR(50),    -- 'tension', 'relief', 'shock', 'satisfaction'
+    character_involvement JSONB DEFAULT '[]'::jsonb,
+    plot_function VARCHAR(50),       -- 剧情功能
     foreshadowing JSONB DEFAULT '[]'::jsonb,
-    
-    -- 元数据
-    estimated_word_count INTEGER DEFAULT 5000,
-    estimated_reading_time INTEGER DEFAULT 20,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. 幕次表
+CREATE TABLE IF NOT EXISTS acts (
+    id VARCHAR(50) PRIMARY KEY,
+    plot_outline_id VARCHAR(50) NOT NULL REFERENCES plot_outlines(id) ON DELETE CASCADE,
+    act_number INTEGER NOT NULL,
+    act_name VARCHAR(100) NOT NULL,
+    start_position DECIMAL(3,2) NOT NULL,
+    end_position DECIMAL(3,2) NOT NULL,
+    purpose TEXT NOT NULL,
+    key_events JSONB DEFAULT '[]'::jsonb,
+    emotional_tone VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- 唯一约束
-    UNIQUE(plot_outline_id, chapter_number)
+    UNIQUE(plot_outline_id, act_number)
 );
 
--- 3. 创建索引
+-- 4. 转折点表
+CREATE TABLE IF NOT EXISTS turning_points (
+    id VARCHAR(50) PRIMARY KEY,
+    plot_outline_id VARCHAR(50) NOT NULL REFERENCES plot_outlines(id) ON DELETE CASCADE,
+    point_type VARCHAR(50) NOT NULL,
+    position DECIMAL(3,2) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT NOT NULL,
+    impact TEXT NOT NULL,
+    character_involvement JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. 故事弧线节点表
+CREATE TABLE IF NOT EXISTS story_arc_points (
+    id VARCHAR(50) PRIMARY KEY,
+    plot_outline_id VARCHAR(50) NOT NULL REFERENCES plot_outlines(id) ON DELETE CASCADE,
+    arc_type VARCHAR(50) NOT NULL,  -- 'beginning', 'development', 'climax', 'falling_action', 'resolution'
+    position DECIMAL(3,2) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT NOT NULL,
+    emotional_state VARCHAR(50) NOT NULL,
+    character_growth TEXT,
+    plot_advancement TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. 创建索引
 CREATE INDEX IF NOT EXISTS idx_plot_outlines_worldview_id ON plot_outlines(worldview_id);
 CREATE INDEX IF NOT EXISTS idx_plot_outlines_status ON plot_outlines(status);
 CREATE INDEX IF NOT EXISTS idx_plot_outlines_created_at ON plot_outlines(created_at);
-CREATE INDEX IF NOT EXISTS idx_chapter_outlines_plot_id ON chapter_outlines(plot_outline_id);
-CREATE INDEX IF NOT EXISTS idx_chapter_outlines_number ON chapter_outlines(plot_outline_id, chapter_number);
+CREATE INDEX IF NOT EXISTS idx_plot_points_plot_id ON plot_points(plot_outline_id);
+CREATE INDEX IF NOT EXISTS idx_plot_points_position ON plot_points(plot_outline_id, position);
+CREATE INDEX IF NOT EXISTS idx_acts_plot_id ON acts(plot_outline_id);
+CREATE INDEX IF NOT EXISTS idx_turning_points_plot_id ON turning_points(plot_outline_id);
+CREATE INDEX IF NOT EXISTS idx_story_arc_points_plot_id ON story_arc_points(plot_outline_id);
 
--- 4. 创建更新时间触发器
+-- 7. 创建更新时间触发器
 CREATE OR REPLACE FUNCTION update_plot_outline_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -82,86 +113,88 @@ CREATE TRIGGER trigger_update_plot_outline_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_plot_outline_updated_at();
 
--- 5. 插入示例数据
+-- 8. 插入示例数据
 INSERT INTO plot_outlines (
-    id, title, description, worldview_id, character_ids,
-    structure_type, total_chapters, target_word_count,
-    main_conflict, theme, tone, status, created_by
+    id, title, description, worldview_id, story_tone, narrative_structure, story_structure,
+    story_framework, character_positions, plot_blocks, story_flow,
+    target_word_count, estimated_chapters, status, created_by
 ) VALUES (
     'plot_example_001',
-    '修仙传奇',
-    '一个关于修仙者成长的故事',
+    '修仙传奇：灵枢觉醒',
+    '一个关于修仙者成长的故事，主角在灵枢世界中觉醒，面对正邪之争',
     'world_490231911657504838',
-    '["char_001", "char_002"]'::jsonb,
-    '三幕式',
-    20,
-    100000,
-    '主角与邪恶势力的斗争',
-    '正义与邪恶的较量',
     '热血',
+    '线性叙事',
+    '三幕式',
+    '{"structure_type": "三幕式", "acts": [], "turning_points": [], "climax_position": 0.8, "resolution_position": 0.9, "narrative_style": "线性叙事"}'::jsonb,
+    '{"主角": {"position": "故事中心", "function": "推动剧情发展", "development_arc": "从普通人到修仙者", "worldview_connection": "灵枢修炼体系", "key_moments": ["觉醒", "修炼", "成长"]}}'::jsonb,
+    '[{"plot_name": "觉醒篇", "description": "主角觉醒灵枢能力", "participating_characters": ["主角"], "worldview_elements": ["灵枢"], "emotional_tone": "震惊", "plot_function": "故事开端", "estimated_chapters": 5, "estimated_words": 25000, "key_events": ["觉醒", "初遇导师"], "foreshadowing": ["神秘力量"]}]'::jsonb,
+    '{"overall_direction": "从普通人到修仙者的成长历程", "thematic_progression": "正义与邪恶的较量", "character_arcs": {"主角": "从普通人到修仙者的成长历程"}, "worldview_evolution": "灵枢世界的逐步展现", "conflict_progression": "从个人成长到正邪之争", "emotional_journey": "震惊→困惑→决心→挫折→成长→胜利→满足"}'::jsonb,
+    100000,
+    20,
     '草稿',
     'system'
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO chapter_outlines (
-    id, plot_outline_id, chapter_number, title,
-    summary, main_events, key_scenes,
-    participating_characters, character_development,
-    conflict_escalation, plot_advancement, foreshadowing,
-    estimated_word_count
-) VALUES (
-    'chapter_example_001',
-    'plot_example_001',
-    1,
-    '初入修仙界',
-    '主角初次接触修仙世界，开始修炼之路',
-    '["初遇师父", "开始修炼"]'::jsonb,
-    '["修炼场景", "师父指导"]'::jsonb,
-    '["主角", "师父"]'::jsonb,
-    '{"主角": "开始修炼，了解修仙世界"}'::jsonb,
-    '主角发现自己的修炼天赋',
-    '建立世界观，介绍主要角色',
-    '["神秘功法", "未来敌人"]'::jsonb,
-    5000
-) ON CONFLICT (id) DO NOTHING;
-
--- 6. 创建视图：剧情大纲详情
+-- 9. 创建视图：剧情大纲详情
 CREATE OR REPLACE VIEW plot_outline_details AS
 SELECT 
     po.id,
     po.title,
     po.description,
     po.worldview_id,
-    po.character_ids,
-    po.structure_type,
-    po.total_chapters,
+    po.story_tone,
+    po.narrative_structure,
+    po.story_structure,
+    po.story_framework,
+    po.character_positions,
+    po.plot_blocks,
+    po.story_flow,
     po.target_word_count,
-    po.main_conflict,
-    po.theme,
-    po.tone,
-    po.character_arcs,
+    po.estimated_chapters,
     po.status,
     po.created_at,
     po.updated_at,
     po.created_by,
-    COUNT(co.id) as actual_chapters,
-    COALESCE(SUM(co.estimated_word_count), 0) as total_estimated_words
+    COUNT(pp.id) as plot_points_count,
+    COUNT(a.id) as acts_count,
+    COUNT(tp.id) as turning_points_count
 FROM plot_outlines po
-LEFT JOIN chapter_outlines co ON po.id = co.plot_outline_id
+LEFT JOIN plot_points pp ON po.id = pp.plot_outline_id
+LEFT JOIN acts a ON po.id = a.plot_outline_id
+LEFT JOIN turning_points tp ON po.id = tp.plot_outline_id
 GROUP BY po.id;
 
--- 7. 创建函数：获取剧情大纲的完整信息
-CREATE OR REPLACE FUNCTION get_plot_outline_with_chapters(plot_id VARCHAR(50))
+-- 10. 创建函数：获取剧情大纲的完整信息
+CREATE OR REPLACE FUNCTION get_plot_outline_with_details(plot_id VARCHAR(50))
 RETURNS JSONB AS $$
 DECLARE
     result JSONB;
 BEGIN
     SELECT jsonb_build_object(
         'plot_outline', row_to_json(po),
-        'chapters', COALESCE(
-            (SELECT jsonb_agg(row_to_json(co) ORDER BY co.chapter_number)
-             FROM chapter_outlines co 
-             WHERE co.plot_outline_id = plot_id),
+        'plot_points', COALESCE(
+            (SELECT jsonb_agg(row_to_json(pp) ORDER BY pp.position)
+             FROM plot_points pp 
+             WHERE pp.plot_outline_id = plot_id),
+            '[]'::jsonb
+        ),
+        'acts', COALESCE(
+            (SELECT jsonb_agg(row_to_json(a) ORDER BY a.act_number)
+             FROM acts a 
+             WHERE a.plot_outline_id = plot_id),
+            '[]'::jsonb
+        ),
+        'turning_points', COALESCE(
+            (SELECT jsonb_agg(row_to_json(tp) ORDER BY tp.position)
+             FROM turning_points tp 
+             WHERE tp.plot_outline_id = plot_id),
+            '[]'::jsonb
+        ),
+        'story_arc_points', COALESCE(
+            (SELECT jsonb_agg(row_to_json(sap) ORDER BY sap.position)
+             FROM story_arc_points sap 
+             WHERE sap.plot_outline_id = plot_id),
             '[]'::jsonb
         )
     ) INTO result
@@ -172,7 +205,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8. 创建函数：统计剧情大纲信息
+-- 11. 创建函数：统计剧情大纲信息
 CREATE OR REPLACE FUNCTION get_plot_outline_stats()
 RETURNS JSONB AS $$
 DECLARE
@@ -184,8 +217,10 @@ BEGIN
         'planning_plots', COUNT(*) FILTER (WHERE status = '规划中'),
         'writing_plots', COUNT(*) FILTER (WHERE status = '写作中'),
         'completed_plots', COUNT(*) FILTER (WHERE status = '已完成'),
-        'total_chapters', COALESCE(SUM(total_chapters), 0),
-        'total_target_words', COALESCE(SUM(target_word_count), 0)
+        'total_estimated_chapters', COALESCE(SUM(estimated_chapters), 0),
+        'total_target_words', COALESCE(SUM(target_word_count), 0),
+        'avg_word_count', COALESCE(AVG(target_word_count), 0),
+        'avg_chapters', COALESCE(AVG(estimated_chapters), 0)
     ) INTO result
     FROM plot_outlines;
     

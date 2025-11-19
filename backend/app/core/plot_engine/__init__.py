@@ -1,20 +1,29 @@
 """
 剧情大纲生成引擎模块
 """
-from .plot_engine import PlotEngine
+from .plot_engine import PlotOutlineEngine
 from .plot_models import (
-    PlotOutline, ChapterOutline, PlotOutlineRequest, PlotOutlineResponse,
-    PlotStatus, PlotStructure
+    PlotOutline, PlotOutlineRequest, PlotOutlineResponse,
+    StoryFramework, CharacterPosition, PlotBlock,
+    StoryFlow, Act, TurningPoint, PlotPoint, EmotionalBeat,
+    PlotStatus, PlotStructure, ConflictType, NarrativeStructure
 )
-from .plot_engine_utils import PlotEngineUtils
 
 __all__ = [
-    'PlotEngine',
+    'PlotOutlineEngine',
     'PlotOutline',
-    'ChapterOutline', 
     'PlotOutlineRequest',
     'PlotOutlineResponse',
+    'StoryFramework',
+    'CharacterPosition',
+    'PlotBlock',
+    'StoryFlow',
+    'Act',
+    'TurningPoint',
+    'PlotPoint',
+    'EmotionalBeat',
     'PlotStatus',
     'PlotStructure',
-    'PlotEngineUtils'
+    'ConflictType',
+    'NarrativeStructure'
 ]

@@ -49,6 +49,56 @@ class PromptManager:
         else:
             raise ValueError(f"不支持的维度: {dimension}")
     
+    def get_detailed_plot_prompt(
+        self,
+        chapter_outline: Any,
+        plot_outline: Any,
+        world_view: Dict[str, Any],
+        characters: List[Dict[str, Any]],
+        additional_requirements: Optional[str] = None
+    ) -> str:
+        """获取详细剧情生成提示词"""
+        from .detailed_plot_generation import get_detailed_plot_prompt
+        return get_detailed_plot_prompt(
+            chapter_outline, plot_outline, world_view, characters, additional_requirements
+        )
+    
+    def get_detailed_plot_analysis_prompt(self, content: str) -> str:
+        """获取详细剧情分析提示词"""
+        from .detailed_plot_generation import get_detailed_plot_analysis_prompt
+        return get_detailed_plot_analysis_prompt(content)
+    
+    def get_detailed_plot_revision_prompt(
+        self,
+        original_content: str,
+        revision_requirements: str,
+        analysis_feedback: str = None
+    ) -> str:
+        """获取详细剧情修订提示词"""
+        from .detailed_plot_generation import get_detailed_plot_revision_prompt
+        return get_detailed_plot_revision_prompt(
+            original_content, revision_requirements, analysis_feedback
+        )
+    
+    def get_detailed_plot_summary_prompt(self, content: str) -> str:
+        """获取详细剧情摘要提示词"""
+        from .detailed_plot_generation import get_detailed_plot_summary_prompt
+        return get_detailed_plot_summary_prompt(content)
+    
+    def get_character_generation_prompt(self, world_view: dict, character_requirements: str) -> str:
+        """获取角色生成提示词"""
+        from .character_generation import get_character_generation_prompt
+        return get_character_generation_prompt(world_view, character_requirements)
+    
+    def get_batch_character_generation_prompt(self, world_view: dict, character_description: str, 
+                                            character_count: int, role_types: list) -> str:
+        """获取批量角色生成提示词"""
+        from .character_generation import get_batch_character_generation_prompt
+        return get_batch_character_generation_prompt(
+            world_view, character_description, character_count, role_types
+        )
+    
+    
     def _get_power_system_template(self, existing_data: Dict[str, Any], update_description: str) -> str:
         """力量体系提示词模板"""
         return f"""

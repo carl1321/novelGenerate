@@ -10,7 +10,8 @@ import logging
 import os
 
 from app.core.config import settings
-from app.api import world, character, plot_outline, logic, scoring, evolution
+from app.api import world, character, logic, scoring, evolution
+from app.api import plot_outline, chapter_outline
 from app.core.database import init_database
 
 # 配置日志
@@ -25,14 +26,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时初始化数据库
-    logger.info("正在初始化数据库...")
     await init_database()
-    logger.info("数据库初始化完成")
-    logger.debug(f"LLM提供商: {settings.LLM_PROVIDER}")
-    logger.debug(f"API密钥已配置: {'是' if settings.ALIBABA_QWEN_API_KEY else '否'}")
     yield
     # 关闭时清理资源
-    logger.info("应用正在关闭...")
+    pass
 
 
 # 创建FastAPI应用
@@ -61,10 +58,30 @@ app.add_middleware(
 # 注册API路由
 app.include_router(world.router, prefix="/api/v1/world", tags=["世界观"])
 app.include_router(character.router, prefix="/api/v1/character", tags=["角色管理"])
-app.include_router(plot_outline.router, prefix="/api/v1/plot", tags=["剧情生成"])
 app.include_router(logic.router, prefix="/api/v1/logic", tags=["逻辑反思"])
 app.include_router(scoring.router, prefix="/api/v1/scoring", tags=["评分系统"])
 app.include_router(evolution.router, prefix="/api/v1/evolution", tags=["进化重写"])
+
+# 注册API路由
+app.include_router(plot_outline.router, prefix="/api/v1/plot", tags=["剧情大纲"])
+app.include_router(chapter_outline.router, prefix="/api/v1/chapter", tags=["章节大纲"])
+
+# 导入事件API
+from app.api import event
+from app.api import event_chapter_mapping
+app.include_router(event.router, prefix="/api/v1", tags=["事件管理"])
+app.include_router(event_chapter_mapping.router, prefix="/api/v1", tags=["事件-章节映射"])
+
+# 导入详细剧情API
+from app.api import detailed_plot
+app.include_router(detailed_plot.router, prefix="/api/v1", tags=["详细剧情"])
+
+# 导入新的评分智能体API
+from app.api import scoring as scoring_intelligent
+app.include_router(scoring_intelligent.router, prefix="/api/v1/score-intelligent", tags=["评分智能体"])
+
+# 添加兼容性路由，支持前端的旧API调用
+app.include_router(plot_outline.router, prefix="/api/generate", tags=["兼容性API"])
 
 
 @app.get("/")
@@ -89,7 +106,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=True,
         log_level=log_level
     )

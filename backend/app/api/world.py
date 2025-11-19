@@ -20,6 +20,7 @@ class WorldViewCreateRequest(BaseModel):
     core_concept: str
     description: Optional[str] = None
     additional_requirements: Optional[Dict[str, Any]] = None
+    temperature: float = 0.7
 
 
 class WorldViewExpandRequest(BaseModel):
@@ -35,12 +36,15 @@ class WorldElementSearchRequest(BaseModel):
 
 
 @router.get("/list")
-async def get_world_view_list(limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)):
-    """获取世界观列表（直接从数据库查询，快速响应）"""
+async def get_world_view_list(
+    limit: int = Query(50, ge=1, le=100, description="限制数量"),
+    offset: int = Query(0, ge=0, description="偏移量"),
+    status: str = Query("active", description="状态过滤")
+):
+    """获取世界观列表"""
     try:
-        # 直接使用数据库查询，跳过服务层
-        worldviews = worldview_db.get_worldview_list(limit=limit, offset=offset)
-        return {"worldviews": worldviews}
+        worldviews = worldview_db.get_worldview_list(limit=limit, offset=offset, status=status)
+        return worldviews
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -75,7 +79,8 @@ async def create_world_view(request: WorldViewCreateRequest):
         world_view = await world_service.create_world_view(
             request.core_concept,
             request.description,
-            request.additional_requirements
+            request.additional_requirements,
+            request.temperature
         )
         return world_view
     except Exception as e:
@@ -96,18 +101,6 @@ async def expand_world_view(world_view_id: str, request: WorldViewExpandRequest)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/list", response_model=List[Dict[str, Any]])
-async def get_world_view_list(
-    limit: int = Query(50, ge=1, le=100, description="限制数量"),
-    offset: int = Query(0, ge=0, description="偏移量"),
-    status: str = Query("active", description="状态过滤")
-):
-    """获取世界观列表"""
-    try:
-        worldviews = worldview_db.get_worldview_list(limit=limit, offset=offset, status=status)
-        return worldviews
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{world_view_id}", response_model=WorldView)
@@ -274,3 +267,96 @@ async def get_techniques(world_view_id: str):
         return {"techniques": techniques}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class WorldViewPartialUpdateRequest(BaseModel):
+    """世界观部分更新请求"""
+    core_concept: Optional[str] = None
+    description: Optional[str] = None
+    update_dimensions: List[str]
+    update_description: str
+
+
+@router.put("/{world_view_id}")
+async def update_worldview(world_view_id: str, request: Dict[str, Any]):
+    """直接更新世界观基本信息"""
+    try:
+        # 获取现有世界观
+        existing_worldview = worldview_db.get_worldview(world_view_id)
+        if not existing_worldview:
+            raise HTTPException(status_code=404, detail="世界观不存在")
+        
+        # 构建更新数据
+        update_data = existing_worldview.copy()
+        
+        # 更新允许的字段
+        if "name" in request:
+            update_data["name"] = request["name"]
+        if "core_concept" in request:
+            update_data["core_concept"] = request["core_concept"]
+        if "description" in request:
+            update_data["description"] = request["description"]
+        if "power_system" in request:
+            update_data["power_system"] = request["power_system"]
+        if "geography" in request:
+            update_data["geography"] = request["geography"]
+        if "social_structure" in request:
+            update_data["culture"] = request["social_structure"]
+        if "historical_culture" in request:
+            update_data["history"] = request["historical_culture"]
+        
+        # 更新数据库
+        success = worldview_db.update_worldview(world_view_id, update_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="更新数据库失败")
+        
+        return {
+            "message": "世界观更新成功",
+            "worldview": update_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+
+
+@router.put("/{world_view_id}/partial")
+async def partial_update_worldview(world_view_id: str, request: WorldViewPartialUpdateRequest):
+    """部分更新世界观"""
+    try:
+        # 获取现有世界观
+        existing_worldview = worldview_db.get_worldview(world_view_id)
+        if not existing_worldview:
+            raise HTTPException(status_code=404, detail="世界观不存在")
+        
+        # 导入部分更新服务
+        from app.core.world.part_world_update import PartialWorldUpdateService
+        update_service = PartialWorldUpdateService()
+        
+        # 执行部分更新
+        updated_data = await update_service.update_partial_worldview(
+            existing_worldview=existing_worldview,
+            update_dimensions=request.update_dimensions,
+            update_description=request.update_description,
+            additional_context={
+                "core_concept": request.core_concept,
+                "description": request.description
+            }
+        )
+        
+        # 更新数据库
+        success = worldview_db.update_worldview(world_view_id, updated_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="更新数据库失败")
+        
+        return {
+            "message": "世界观部分更新成功",
+            "updated_dimensions": request.update_dimensions,
+            "worldview": updated_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"部分更新失败: {str(e)}")

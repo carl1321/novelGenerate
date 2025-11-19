@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     
     # 数据库配置
     DATABASE_URL: str = "postgresql://novel_user:novel_password@localhost:5432/novel_generate"
-    NEO4J_URI: str = "bolt://localhost:7687"
-    NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = "password"
     
     # Redis配置
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -42,7 +39,8 @@ class Settings(BaseSettings):
     ALIBABA_QWEN_ENDPOINT: str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
     ALIBABA_QWEN_MODEL: str = "qwen3-max"
     ALIBABA_QWEN_TEMPERATURE: float = 0.7
-    ALIBABA_QWEN_MAX_TOKENS: int = 12000
+    ALIBABA_QWEN_MAX_TOKENS: int = 20000
+    ALIBABA_QWEN_TIMEOUT: int = 600  # 10分钟超时
     
     # LLM 提供商选择
     LLM_PROVIDER: str = "alibaba"  # 可选: "azure", "alibaba"
@@ -53,7 +51,7 @@ class Settings(BaseSettings):
     OPENAI_AZURE_DEPLOYMENT: Optional[str] = None
     
     # 文件输出配置
-    NOVEL_OUTPUT_DIR: str = "../novel"
+    NOVEL_OUTPUT_DIR: str = "novel"
     OUTPUT_FORMAT: str = "markdown"
     
     # 本地LLM配置

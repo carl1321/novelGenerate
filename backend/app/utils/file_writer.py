@@ -13,7 +13,11 @@ class FileWriter:
     """文件输出工具类"""
     
     def __init__(self):
-        self.output_dir = Path(settings.NOVEL_OUTPUT_DIR)
+        # 获取项目根目录（backend的上级目录）
+        current_dir = Path(__file__).parent  # backend/app/utils
+        backend_dir = current_dir.parent.parent  # backend
+        project_root = backend_dir.parent  # project_root
+        self.output_dir = project_root / settings.NOVEL_OUTPUT_DIR
         self.output_dir.mkdir(exist_ok=True)
     
     def write_world_view(self, world_view: Dict[str, Any], filename: Optional[str] = None) -> str:
@@ -115,12 +119,24 @@ class FileWriter:
         
         return str(file_path)
     
-    def write_analysis_report(self, report: Dict[str, Any], filename: Optional[str] = None) -> str:
-        """写入分析报告文档"""
+    def write_detailed_plot(self, detailed_plot: Dict[str, Any], filename: Optional[str] = None) -> str:
+        """写入详细剧情文档"""
         if not filename:
-            report_type = report.get('type', '分析报告')
+            plot_title = detailed_plot.get('title', '未命名详细剧情')
+            plot_id = detailed_plot.get('id', '')
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{report_type}_{timestamp}.md"
+            filename = f"详细剧情_{plot_title}_{plot_id}_{timestamp}.md"
+        
+        file_path = self.output_dir / filename
+        
+        content = self._format_detailed_plot(detailed_plot)
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return str(file_path)
+    
+    def write_analysis_report(self, report: Dict[str, Any], filename: Optional[str] = None) -> str:
         
         file_path = self.output_dir / filename
         
@@ -227,6 +243,40 @@ class FileWriter:
                 content.append("")
         
         return "\n".join(content)
+    
+    def _format_detailed_plot(self, detailed_plot: Dict[str, Any]) -> str:
+        """格式化详细剧情文档"""
+        content = f"""# {detailed_plot.get('title', '未命名详细剧情')}
+
+## 基本信息
+
+- **详细剧情ID**: {detailed_plot.get('id', '未知')}
+- **章节大纲ID**: {detailed_plot.get('chapter_outline_id', '未知')}
+- **剧情大纲ID**: {detailed_plot.get('plot_outline_id', '未知')}
+- **字数**: {detailed_plot.get('word_count', 0)} 字
+- **状态**: {detailed_plot.get('status', '未知')}
+- **创建时间**: {detailed_plot.get('created_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
+- **更新时间**: {detailed_plot.get('updated_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
+
+## 详细剧情内容
+
+{detailed_plot.get('content', '暂无内容')}
+
+## 逻辑检查结果
+
+- **逻辑状态**: {detailed_plot.get('logic_status', '未检查')}
+- **逻辑分数**: {detailed_plot.get('logic_score', 'N/A')}
+- **检查结果**: {detailed_plot.get('logic_check_result', '暂无检查结果')}
+
+## 评分信息
+
+- **评分状态**: {detailed_plot.get('scoring_status', '未评分')}
+- **总分**: {detailed_plot.get('total_score', 'N/A')}
+
+---
+*本文档由小说生成智能体框架自动生成*
+"""
+        return content
     
     def _format_character_profile(self, character: Dict[str, Any]) -> str:
         """格式化角色档案文档 - 使用简化的5个维度结构"""

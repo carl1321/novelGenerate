@@ -207,8 +207,8 @@ async def partial_update_world_view(
             raise HTTPException(status_code=404, detail="世界观不存在")
         
         # 2. 创建部分更新器
-        from app.core.world.part_world_update import PartWorldUpdater
-        updater = PartWorldUpdater()
+        from app.core.world.part_world_update import PartialWorldUpdateService
+        updater = PartialWorldUpdateService()
         
         # 3. 执行部分更新
         updated_data = await updater.update_partial_worldview(
