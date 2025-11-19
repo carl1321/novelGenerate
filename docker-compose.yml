@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # PostgreSQL数据库
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17.6-alpine
     container_name: novel_generate_postgres
     environment:
       - POSTGRES_DB=novel_generate
@@ -32,7 +32,6 @@ services:
       - "8001:8001"
     environment:
       - DATABASE_URL=postgresql://novel_user:novel_password@postgres:5432/novel_generate
-      - REDIS_URL=redis://redis:6379/0
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-}
@@ -42,23 +41,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
     volumes:
       - ./backend:/app
       - ./novel:/app/novel
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-    networks:
-      - novel_network
-
-  # Redis缓存（可选，如果后端不需要可以移除）
-  redis:
-    image: redis:7-alpine
-    container_name: novel_generate_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
     networks:
       - novel_network
 
@@ -81,7 +67,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
 
 networks:
   novel_network:

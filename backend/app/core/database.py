@@ -27,8 +27,13 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# Redis缓存配置
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+# Redis缓存配置（可选）
+redis_client = None
+if hasattr(settings, 'REDIS_URL') and settings.REDIS_URL:
+    try:
+        redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    except Exception:
+        redis_client = None
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -41,7 +46,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 def get_redis():
-    """获取Redis客户端"""
+    """获取Redis客户端（如果可用）"""
     return redis_client
 
 
@@ -55,4 +60,5 @@ async def init_database():
 async def close_database():
     """关闭数据库连接"""
     await engine.dispose()
-    redis_client.close()
+    if redis_client:
+        redis_client.close()
